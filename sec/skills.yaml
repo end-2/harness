@@ -1,0 +1,435 @@
+name: sec
+version: 1.0.0
+description: >
+  Arch 스킬의 산출물(아키텍처 결정, 컴포넌트 구조, 기술 스택, 다이어그램)과
+  Impl 스킬의 산출물(구현 맵, 코드 구조, 구현 결정, 구현 가이드)을 입력으로 받아,
+  보안 취약점 분석, 위협 모델링, 보안 코드 리뷰, 표준 준수 검증을 수행하는 보안(Security) 스킬.
+  위협 모델링은 도메인 맥락이 필요하므로 대화형 모델을 채택하고,
+  코드 레벨 감사와 컴플라이언스 검증은 자동 실행 + 예외 에스컬레이션 모델을 채택한다.
+
+agents:
+  threat-model:
+    name: 위협 모델링
+    description: Arch 산출물을 기반으로 사용자와의 대화를 통해 아키텍처 레벨 위협을 식별하고 대응 전략을 수립
+    system_prompt: agents/threat-model.md
+    prompt_template: prompts/threat-model.md
+    interaction_mode: multi-turn
+    max_turns: 15
+    adaptive_depth:
+      lightweight:
+        trigger: "Arch 컴포넌트 ≤ 3개, 단일 서비스, 외부 인터페이스 ≤ 2개"
+        output: "STRIDE 경량 적용 + 핵심 위협 요약 + OWASP Top 10 체크리스트 기반 위협 식별"
+      heavyweight:
+        trigger: "Arch 컴포넌트 > 3개 또는 서비스 간 통신 존재 또는 외부 인터페이스 > 2개"
+        output: "전체 STRIDE 위협 모델링 + DREAD 우선순위 + 신뢰 경계 정의 + 데이터 흐름 보안 분류 + 공격 트리"
+    input:
+      architecture_decisions:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 주요 아키텍처 결정과 근거"
+        items:
+          id: { type: string, pattern: "^AD-\\d{3}$" }
+          title: { type: string }
+          decision: { type: string }
+          rationale: { type: string }
+          alternatives_considered: { type: array }
+          trade_offs: { type: string }
+          re_refs: { type: array, items: { type: string } }
+      component_structure:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 시스템 주요 컴포넌트와 관계"
+        items:
+          id: { type: string, pattern: "^COMP-\\d{3}$" }
+          name: { type: string }
+          responsibility: { type: string }
+          type: { type: string, enum: [service, library, gateway, store, queue, ui] }
+          interfaces: { type: array }
+          dependencies: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+      technology_stack:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 선정된 기술과 근거"
+        items:
+          category: { type: string, enum: [language, framework, database, messaging, infra, tool] }
+          choice: { type: string }
+          rationale: { type: string }
+          decision_ref: { type: string }
+          constraint_ref: { type: string }
+      diagrams:
+        type: array
+        required: false
+        description: "Arch diagram 산출물 — Mermaid 다이어그램 목록"
+        items:
+          type: { type: string, enum: [c4-context, c4-container, sequence, data-flow] }
+          title: { type: string }
+          format: { type: string, enum: [mermaid] }
+          code: { type: string }
+          description: { type: string }
+    output:
+      threat_model:
+        type: array
+        required: true
+        description: "STRIDE 기반 위협 목록"
+        items:
+          id: { type: string, pattern: "^TM-\\d{3}$" }
+          title: { type: string }
+          stride_category: { type: string, enum: [spoofing, tampering, repudiation, information_disclosure, denial_of_service, elevation_of_privilege] }
+          description: { type: string }
+          attack_vector: { type: string }
+          affected_components: { type: array, items: { type: string } }
+          trust_boundary: { type: string }
+          dread_score: { type: object, properties: { damage: { type: integer }, reproducibility: { type: integer }, exploitability: { type: integer }, affected_users: { type: integer }, discoverability: { type: integer } } }
+          risk_level: { type: string, enum: [critical, high, medium, low] }
+          mitigation: { type: string }
+          mitigation_status: { type: string, enum: [mitigated, partial, accepted, unmitigated] }
+          arch_refs: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+      trust_boundaries:
+        type: array
+        required: true
+        description: "신뢰 경계 정의 목록"
+        items:
+          id: { type: string, pattern: "^TB-\\d{3}$" }
+          name: { type: string }
+          description: { type: string }
+          components_inside: { type: array, items: { type: string } }
+          components_outside: { type: array, items: { type: string } }
+      data_flow_security:
+        type: array
+        required: true
+        description: "보안 관점 데이터 흐름"
+        items:
+          id: { type: string, pattern: "^DFS-\\d{3}$" }
+          source: { type: string }
+          destination: { type: string }
+          data_classification: { type: string, enum: [public, internal, confidential, restricted] }
+          protection_required: { type: array, items: { type: string } }
+      attack_trees:
+        type: array
+        required: false
+        description: "주요 위협별 공격 트리 (Mermaid 코드)"
+        items:
+          threat_ref: { type: string }
+          format: { type: string, enum: [mermaid] }
+          code: { type: string }
+
+  audit:
+    name: 보안 감사
+    description: Impl 산출물을 기반으로 코드 보안 취약점을 자동으로 정적 분석하고 의존성 취약점을 스캔
+    system_prompt: agents/audit.md
+    prompt_template: prompts/audit.md
+    interaction_mode: auto-execute
+    escalation_only: true
+    input:
+      implementation_map:
+        type: array
+        required: true
+        description: "Impl generate 산출물 — Arch 컴포넌트와 코드 모듈 매핑"
+        items:
+          id: { type: string, pattern: "^IM-\\d{3}$" }
+          component_ref: { type: string }
+          module_path: { type: string }
+          entry_point: { type: string }
+          internal_structure: { type: array }
+          interfaces_implemented: { type: array }
+          re_refs: { type: array, items: { type: string } }
+      code_structure:
+        type: object
+        required: true
+        description: "Impl generate 산출물 — 프로젝트 전체 구조와 의존성"
+        properties:
+          project_root: { type: string }
+          directory_layout: { type: string }
+          module_dependencies: { type: array }
+          external_dependencies: { type: array }
+          build_config: { type: array }
+          environment_config: { type: array }
+      implementation_decisions:
+        type: array
+        required: true
+        description: "Impl generate 산출물 — 코드 레벨 주요 기술적 결정"
+        items:
+          id: { type: string, pattern: "^IDR-\\d{3}$" }
+          title: { type: string }
+          decision: { type: string }
+          rationale: { type: string }
+          pattern_applied: { type: string }
+          arch_refs: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+      threat_model:
+        type: array
+        required: true
+        description: "threat-model 에이전트의 산출물 — 감사 우선순위 결정에 사용"
+      trust_boundaries:
+        type: array
+        required: true
+        description: "threat-model 에이전트의 신뢰 경계 정의"
+    output:
+      vulnerability_report:
+        type: array
+        required: true
+        description: "코드 레벨 취약점 보고서"
+        items:
+          id: { type: string, pattern: "^VA-\\d{3}$" }
+          title: { type: string }
+          cwe_id: { type: string, pattern: "^CWE-\\d+$" }
+          owasp_category: { type: string }
+          severity: { type: string, enum: [critical, high, medium, low, informational] }
+          cvss_score: { type: number, minimum: 0.0, maximum: 10.0 }
+          cvss_vector: { type: string }
+          location: { type: object, properties: { file: { type: string }, line: { type: integer }, function: { type: string } } }
+          description: { type: string }
+          proof_of_concept: { type: string }
+          remediation: { type: string }
+          remediation_effort: { type: string, enum: [trivial, moderate, significant] }
+          dependency_vuln:
+            type: object
+            required: false
+            properties:
+              package: { type: string }
+              version: { type: string }
+              cve_id: { type: string }
+              fixed_version: { type: string }
+          impl_refs: { type: array, items: { type: string } }
+          arch_refs: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+          threat_refs: { type: array, items: { type: string } }
+
+  review:
+    name: 보안 코드 리뷰
+    description: threat-model의 위협과 audit의 취약점을 기반으로 보안 로직의 정확성을 심층 리뷰
+    system_prompt: agents/review.md
+    prompt_template: prompts/review.md
+    interaction_mode: auto-execute
+    escalation_only: true
+    input:
+      implementation_map:
+        type: array
+        required: true
+        description: "Impl generate 산출물 — 코드 모듈 매핑"
+      code_structure:
+        type: object
+        required: true
+        description: "Impl generate 산출물 — 프로젝트 전체 구조"
+      component_structure:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 컴포넌트 구조 (인터페이스, 의존 관계)"
+      threat_model:
+        type: array
+        required: true
+        description: "threat-model 에이전트 산출물 — 위협 목록 및 대응 전략"
+      vulnerability_report:
+        type: array
+        required: true
+        description: "audit 에이전트 산출물 — 취약점 목록"
+    output:
+      security_review:
+        type: array
+        required: true
+        description: "보안 로직 심층 리뷰 결과"
+        items:
+          id: { type: string, pattern: "^SRV-\\d{3}$" }
+          category: { type: string, enum: [authn, authz, input_validation, session_management, cryptography, error_handling, security_headers, data_protection] }
+          title: { type: string }
+          severity: { type: string, enum: [critical, high, medium, low, informational] }
+          description: { type: string }
+          location: { type: object, properties: { file: { type: string }, line: { type: integer }, function: { type: string } } }
+          current_state: { type: string }
+          expected_state: { type: string }
+          remediation: { type: string }
+          threat_refs: { type: array, items: { type: string } }
+          vuln_refs: { type: array, items: { type: string } }
+          arch_refs: { type: array, items: { type: string } }
+      mitigation_matrix:
+        type: array
+        required: true
+        description: "위협 대응 전략 구현 검증 매트릭스"
+        items:
+          threat_ref: { type: string }
+          mitigation: { type: string }
+          implementation_status: { type: string, enum: [implemented, partial, missing] }
+          code_location: { type: string }
+          verification_notes: { type: string }
+
+  compliance:
+    name: 컴플라이언스 검증
+    description: 세 에이전트의 결과를 보안 표준 항목에 매핑하여 준수 상태를 자동 검증하고 통합 보안 권고를 생성
+    system_prompt: agents/compliance.md
+    prompt_template: prompts/compliance.md
+    interaction_mode: auto-execute
+    escalation_only: true
+    input:
+      threat_model:
+        type: array
+        required: true
+        description: "threat-model 에이전트 산출물"
+      trust_boundaries:
+        type: array
+        required: true
+        description: "threat-model 에이전트의 신뢰 경계 정의"
+      vulnerability_report:
+        type: array
+        required: true
+        description: "audit 에이전트 산출물"
+      security_review:
+        type: array
+        required: true
+        description: "review 에이전트 산출물"
+      mitigation_matrix:
+        type: array
+        required: true
+        description: "review 에이전트의 대응 전략 구현 검증 매트릭스"
+      technology_stack:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 기술별 설정 기준"
+      component_structure:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 컴포넌트 구조"
+    output:
+      compliance_report:
+        type: array
+        required: true
+        description: "보안 표준별 준수 상태 리포트"
+        items:
+          id: { type: string, pattern: "^CR-\\d{3}$" }
+          standard: { type: string, enum: [OWASP-ASVS-L1, OWASP-ASVS-L2, OWASP-ASVS-L3, PCI-DSS, GDPR, HIPAA] }
+          version: { type: string }
+          scope: { type: string }
+          overall_status: { type: string, enum: [compliant, partial, non_compliant] }
+          total_requirements: { type: integer }
+          compliant_count: { type: integer }
+          non_compliant_count: { type: integer }
+          not_applicable_count: { type: integer }
+          findings:
+            type: array
+            items:
+              requirement_id: { type: string }
+              title: { type: string }
+              status: { type: string, enum: [compliant, non_compliant, partial, not_applicable] }
+              evidence: { type: string }
+              gap_description: { type: string }
+              remediation: { type: string }
+          gap_summary: { type: array }
+          remediation_roadmap: { type: array }
+          constraint_refs: { type: array, items: { type: string } }
+          threat_refs: { type: array, items: { type: string } }
+          vuln_refs: { type: array, items: { type: string } }
+      security_recommendations:
+        type: array
+        required: true
+        description: "통합 보안 권고 목록"
+        items:
+          id: { type: string, pattern: "^SR-\\d{3}$" }
+          title: { type: string }
+          category: { type: string, enum: [architecture, code, configuration, dependency, process] }
+          priority: { type: integer, minimum: 1 }
+          description: { type: string }
+          current_state: { type: string }
+          recommended_action: { type: string }
+          alternative_actions: { type: array }
+          affected_components: { type: array, items: { type: string } }
+          threat_refs: { type: array, items: { type: string } }
+          vuln_refs: { type: array, items: { type: string } }
+          arch_refs: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+
+pipeline:
+  stages:
+    - agent: threat-model
+      checkpoint: true
+      description: Arch 산출물 기반 아키텍처 레벨 위협 모델링 (사용자 대화)
+    - agent: audit
+      checkpoint: false
+      description: Impl 산출물 기반 코드 레벨 취약점 자동 감사
+    - agent: review
+      checkpoint: false
+      description: 위협 모델 + 감사 결과 기반 보안 로직 심층 리뷰
+    - agent: compliance
+      checkpoint: true
+      description: 전체 결과를 보안 표준에 매핑하고 통합 보안 권고 생성
+  escalation:
+    audit:
+      trigger: "CVSS 9.0 이상 critical 취약점 발견 또는 패치 없는 zero-day 의존성 취약점"
+      description: 긴급 대응 여부 확인 및 대안 선택 요청
+    review:
+      trigger: "critical 위협의 대응 전략 미구현/불완전 구현 또는 아키텍처 레벨 보안 결함"
+      description: Arch 피드백과 함께 사용자에게 에스컬레이션
+    compliance:
+      trigger: "RE constraints의 hard 규제 제약(PCI DSS, HIPAA 등)에 대해 non_compliant 판정"
+      description: 규제 미준수는 법적 리스크이므로 자동 수용 불가, 즉시 에스컬레이션
+  completion:
+    description: >
+      에스컬레이션 없이 전체 자동 분석 완료 시, 최종 보안 리포트 4섹션
+      (위협 모델, 취약점 보고서, 보안 권고, 컴플라이언스 리포트)을 사용자에게 제시
+
+adaptive_depth:
+  lightweight:
+    trigger: "Arch 컴포넌트 ≤ 3개, 단일 서비스, 외부 인터페이스 ≤ 2개"
+    output: "OWASP Top 10 체크리스트 기반 감사 + 핵심 위협 요약 (STRIDE 경량) + 의존성 CVE 스캔 + 인라인 보안 가이드"
+  heavyweight:
+    trigger: "Arch 컴포넌트 > 3개 또는 서비스 간 통신 존재 또는 외부 인터페이스 > 2개"
+    output: "전체 STRIDE 위협 모델링 + DREAD 우선순위 + 컴포넌트별 정적 분석 + CWE 분류 취약점 리포트 + CVSS 심각도 평가 + OWASP ASVS 레벨별 컴플라이언스 리포트 + 보안 아키텍처 권고"
+
+security_standards:
+  - name: OWASP Top 10
+    version: "2021"
+    usage: 취약점 분류 기준
+  - name: OWASP ASVS
+    version: "4.0"
+    usage: 컴플라이언스 검증 기준
+  - name: CWE
+    usage: 취약점 분류 ID 체계
+  - name: CVSS
+    version: "3.1"
+    usage: 취약점 심각도 평가
+  - name: STRIDE
+    usage: 위협 분류 방법론
+  - name: DREAD
+    usage: 위협 우선순위 평가
+
+severity_classification:
+  framework: CVSS v3.1
+  levels:
+    critical: { range: "9.0 - 10.0", description: "즉시 대응 필요, 에스컬레이션 대상" }
+    high: { range: "7.0 - 8.9", description: "우선 수정 필요" }
+    medium: { range: "4.0 - 6.9", description: "계획 수정 권고" }
+    low: { range: "0.1 - 3.9", description: "리스크 수용 가능" }
+    informational: { range: "0.0", description: "참고 사항" }
+
+dependencies:
+  upstream:
+    - skill: arch
+      agent: design
+      consumes: [architecture_decisions, component_structure, technology_stack]
+      usage: 신뢰 경계 도출, 공격 표면 식별, 기술별 취약점 패턴 매핑
+    - skill: arch
+      agent: diagram
+      consumes: [diagrams]
+      usage: DFD 기초 생성, 인증/인가 흐름 보안 검증 지점 도출
+    - skill: impl
+      agent: generate
+      consumes: [implementation_map, code_structure, implementation_decisions, implementation_guide]
+      usage: 감사 대상 파일 범위 결정, API별 보안 검증, 의존성 CVE 스캔
+    - skill: re
+      indirect: true
+      via: "Arch 산출물의 re_refs, constraint_ref"
+      usage: NFR-security 충족 검증, 규제 제약(GDPR, HIPAA, PCI DSS) 컴플라이언스 기준
+
+consumers:
+  - skill: devops
+    consumes: [threat_model, vulnerability_report, compliance_report]
+    usage: 보안 관점 배포 제약, 보안 모니터링 지표, 보안 스캔 게이트, 컴플라이언스 게이트
+  - skill: qa
+    consumes: [threat_model, vulnerability_report]
+    usage: 보안 테스트 시나리오 도출, 보안 회귀 테스트 대상
+  - skill: impl
+    consumes: [vulnerability_report, security_recommendations]
+    usage: 취약점 코드 수정 대상, 코드 레벨 보안 개선
+  - skill: arch
+    consumes: [security_recommendations]
+    usage: 아키텍처 레벨 보안 개선 피드백

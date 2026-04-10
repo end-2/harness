@@ -1,0 +1,308 @@
+name: qa
+version: 1.0.0
+description: >
+  RE/Arch/Impl 스킬의 산출물을 입력으로 받아 테스트 전략 수립, 테스트 코드 생성,
+  요구사항 추적 매트릭스(RTM) 검증, 품질 리포트 생성을 자동으로 수행하는
+  품질 보증(Quality Assurance) 스킬
+
+agents:
+  strategy:
+    name: 테스트 전략 수립
+    description: RE/Arch/Impl 산출물을 분석하여 테스트 범위, 피라미드, 우선순위, NFR 계획을 자동 수립
+    system_prompt: agents/strategy.md
+    prompt_template: prompts/strategy.md
+    interaction_mode: auto
+    adaptive_depth:
+      lightweight:
+        trigger: "Impl 경량 모드 (단일 프로젝트 스캐폴딩, 요구사항 5개 이하)"
+        strategy: "핵심 기능 단위 테스트 + acceptance_criteria 기반 검증 체크리스트"
+      heavyweight:
+        trigger: "Impl 중량 모드 (멀티 모듈 프로젝트, 요구사항 10개 이상)"
+        strategy: "테스트 피라미드 전체 전략 + NFR 테스트 시나리오 + RTM + 품질 게이트"
+    input:
+      requirements_spec:
+        type: array
+        required: true
+        description: "RE spec 산출물 — FR/NFR 목록 (id, category, title, acceptance_criteria, priority, dependencies)"
+      constraints:
+        type: array
+        required: true
+        description: "RE spec 산출물 — 제약 조건 목록 (id, type, flexibility, rationale)"
+      quality_attribute_priorities:
+        type: array
+        required: true
+        description: "RE spec 산출물 — 품질 속성 우선순위 (attribute, priority, metric, trade_off_notes)"
+      architecture_decisions:
+        type: array
+        required: true
+        description: "Arch 산출물 — 아키텍처 결정 목록 (id, decision, trade_offs, re_refs)"
+      component_structure:
+        type: array
+        required: true
+        description: "Arch 산출물 — 컴포넌트 구조 (id, name, type, interfaces, dependencies)"
+      technology_stack:
+        type: array
+        required: true
+        description: "Arch 산출물 — 기술 스택 (category, choice, decision_ref)"
+      diagrams:
+        type: array
+        required: false
+        description: "Arch 산출물 — 다이어그램 (type, code)"
+      implementation_map:
+        type: array
+        required: true
+        description: "Impl 산출물 — 구현 맵 (id, component_ref, module_path, entry_point, interfaces_implemented, re_refs)"
+      code_structure:
+        type: object
+        required: true
+        description: "Impl 산출물 — 코드 구조 (directory_layout, module_dependencies, external_dependencies)"
+      implementation_decisions:
+        type: array
+        required: true
+        description: "Impl 산출물 — 구현 결정 (id, decision, pattern_applied, arch_refs, re_refs)"
+      implementation_guide:
+        type: object
+        required: false
+        description: "Impl 산출물 — 구현 가이드 (setup_steps, build_commands, run_commands, conventions)"
+    output:
+      test_strategy:
+        type: object
+        required: true
+        description: 테스트 전략
+        properties:
+          id: { type: string, pattern: "^TSTR-\\d{3}$" }
+          scope: { type: object, description: "테스트 범위 (포함/제외 대상, 근거)" }
+          pyramid: { type: object, description: "테스트 피라미드 비율 (단위/통합/E2E 비율 및 근거)" }
+          priority_matrix: { type: array, description: "리스크 기반 테스트 우선순위 매트릭스" }
+          nfr_test_plan: { type: array, description: "NFR 테스트 계획 (RE metric 기반)" }
+          environment_matrix: { type: array, description: "테스트 환경 매트릭스 (RE constraints 기반)" }
+          test_double_strategy: { type: array, description: "테스트 더블 전략 (Arch dependencies 기반)" }
+          quality_gate: { type: object, description: "품질 게이트 기준 (코드 커버리지, 요구사항 커버리지, NFR 메트릭)" }
+          re_refs: { type: array, items: { type: string } }
+          arch_refs: { type: array, items: { type: string } }
+
+  generate:
+    name: 테스트 코드 생성
+    description: 확정된 테스트 전략 기반으로 테스트 코드를 일괄 생성하며, 모든 테스트가 RE 요구사항까지 추적 가능하도록 생성
+    system_prompt: agents/generate.md
+    prompt_template: prompts/generate.md
+    interaction_mode: auto
+    input:
+      test_strategy:
+        type: object
+        required: true
+        description: strategy 에이전트의 산출물
+      requirements_spec:
+        type: array
+        required: true
+        description: "RE spec 산출물 — acceptance_criteria 기반 테스트 케이스 도출용"
+      implementation_map:
+        type: array
+        required: true
+        description: "Impl 산출물 — 테스트 대상 모듈 매핑"
+      component_structure:
+        type: array
+        required: true
+        description: "Arch 산출물 — 통합 테스트 경계 결정"
+      technology_stack:
+        type: array
+        required: true
+        description: "Arch 산출물 — 테스트 프레임워크 선택"
+      implementation_decisions:
+        type: array
+        required: true
+        description: "Impl 산출물 — 패턴별 테스트 전략"
+      implementation_guide:
+        type: object
+        required: false
+        description: "Impl 산출물 — 테스트 코드 컨벤션"
+    output:
+      test_suites:
+        type: array
+        required: true
+        description: 테스트 스위트 목록
+        items:
+          id: { type: string, pattern: "^TS-\\d{3}$" }
+          type: { type: string, enum: [unit, integration, e2e, contract, nfr] }
+          title: { type: string }
+          target_module: { type: string }
+          framework: { type: string }
+          test_cases:
+            type: array
+            items:
+              case_id: { type: string, pattern: "^TS-\\d{3}-C\\d{2}$" }
+              description: { type: string }
+              given: { type: string }
+              when: { type: string }
+              then: { type: string }
+              technique: { type: string, enum: [boundary_value, equivalence_partition, decision_table, state_transition, property_based] }
+              acceptance_criteria_ref: { type: string }
+          re_refs: { type: array, items: { type: string } }
+          arch_refs: { type: array, items: { type: string } }
+          impl_refs: { type: array, items: { type: string } }
+
+  review:
+    name: 테스트 리뷰
+    description: 생성된 테스트의 완전성, 강도, 추적성을 리뷰하고 요구사항 추적 매트릭스(RTM) 생성
+    system_prompt: agents/review.md
+    prompt_template: prompts/review.md
+    interaction_mode: auto
+    escalation:
+      condition: "Must 요구사항 커버리지 갭이 자동 보완 불가능한 경우"
+      examples:
+        - "NFR 테스트에 필요한 인프라 부재"
+        - "외부 시스템 의존성으로 테스트 불가"
+    input:
+      test_suites:
+        type: array
+        required: true
+        description: generate 에이전트의 산출물
+      test_strategy:
+        type: object
+        required: true
+        description: strategy 에이전트의 산출물
+      requirements_spec:
+        type: array
+        required: true
+        description: "RE spec 산출물 — 커버리지 검증 기준"
+      constraints:
+        type: array
+        required: true
+        description: "RE spec 산출물 — 컴플라이언스 검증"
+      component_structure:
+        type: array
+        required: true
+        description: "Arch 산출물 — 통합 테스트 완전성 검증"
+      implementation_map:
+        type: array
+        required: true
+        description: "Impl 산출물 — 모듈 커버리지 검증"
+    output:
+      requirements_traceability_matrix:
+        type: array
+        required: true
+        description: 요구사항 추적 매트릭스
+        items:
+          re_id: { type: string }
+          re_title: { type: string }
+          re_priority: { type: string, enum: [Must, Should, Could, "Won't"] }
+          arch_refs: { type: array, items: { type: string } }
+          impl_refs: { type: array, items: { type: string } }
+          test_refs: { type: array, items: { type: string } }
+          coverage_status: { type: string, enum: [covered, partial, uncovered] }
+          gap_description: { type: string }
+      review_report:
+        type: object
+        description: 테스트 리뷰 리포트
+        properties:
+          coverage_gaps: { type: array, description: "커버리지 갭 목록 (자동 보완 가능 / 해소 불가 분류)" }
+          strength_issues: { type: array, description: "테스트 강도 이슈" }
+          code_quality_issues: { type: array, description: "테스트 코드 품질 이슈" }
+          traceability_issues: { type: array, description: "추적성 이슈" }
+      gap_classification:
+        type: object
+        description: 커버리지 갭 자동 분류
+        properties:
+          auto_remediate: { type: array, description: "자동 보완 가능한 Must 갭 → generate 재호출" }
+          risk_accepted: { type: array, description: "자동 수용된 Should/Could/Won't 갭 → 잔여 리스크로 기록" }
+          escalate: { type: array, description: "해소 불가능한 Must 갭 → 사용자 에스컬레이션" }
+
+  report:
+    name: 품질 리포트
+    description: 테스트 실행 결과를 수집하고 RE 메트릭 대비 품질 현황을 종합 리포트로 생성
+    system_prompt: agents/report.md
+    prompt_template: prompts/report.md
+    interaction_mode: auto
+    input:
+      test_suites:
+        type: array
+        required: true
+        description: generate 에이전트의 산출물 (테스트 실행 결과 포함)
+      requirements_traceability_matrix:
+        type: array
+        required: true
+        description: review 에이전트의 RTM 산출물
+      test_strategy:
+        type: object
+        required: true
+        description: strategy 에이전트의 산출물 (품질 게이트 기준)
+      quality_attribute_priorities:
+        type: array
+        required: true
+        description: "RE spec 산출물 — NFR 메트릭 기준"
+      gap_classification:
+        type: object
+        required: false
+        description: review 에이전트의 갭 분류 결과
+    output:
+      quality_report:
+        type: object
+        required: true
+        description: 품질 리포트
+        properties:
+          code_coverage: { type: object, description: "코드 커버리지 (라인, 분기, 경로 — 모듈별)" }
+          requirements_coverage: { type: object, description: "요구사항 커버리지 (RTM 기반 비율)" }
+          nfr_results: { type: array, description: "NFR 테스트 결과 (RE metric 대비 실측치)" }
+          quality_gate: { type: object, description: "품질 게이트 판정 (pass/fail — 기준과 실측 포함)" }
+          risk_items: { type: array, description: "잔여 리스크 목록" }
+          recommendations: { type: array, description: "개선 권고 사항" }
+          re_refs: { type: array, items: { type: string } }
+
+pipeline:
+  stages:
+    - agent: strategy
+      checkpoint: false
+      description: RE/Arch/Impl 산출물 분석 → 테스트 전략 자동 수립
+    - agent: generate
+      checkpoint: false
+      description: 전략 기반 테스트 코드 일괄 생성
+    - agent: review
+      checkpoint: false
+      description: 테스트 완전성/강도 리뷰 + RTM 생성 + 커버리지 갭 자동 분류
+      loop:
+        condition: "Must 갭 중 자동 보완 가능한 것이 존재"
+        target: generate
+        max_iterations: 3
+      escalation:
+        condition: "Must 갭 중 해소 불가능한 것이 존재"
+        action: user_prompt
+    - agent: report
+      checkpoint: true
+      description: 품질 리포트 생성 → 사용자에게 최종 결과 제시
+
+supported_frameworks:
+  - { language: TypeScript, frameworks: [Jest, Vitest] }
+  - { language: Python, frameworks: [pytest] }
+  - { language: Java, frameworks: [JUnit5, Mockito] }
+  - { language: Go, frameworks: [testing] }
+  - { language: Rust, frameworks: ["#[test]", proptest] }
+
+quality_gate_defaults:
+  code_coverage_line: 80
+  code_coverage_branch: 70
+  must_requirements_coverage: 100
+  should_requirements_coverage: 80
+  nfr_compliance: "RE metric 수치 그대로 적용"
+
+consumers:
+  - skill: deployment
+    consumes: [test_strategy, test_suites, quality_report]
+    usage: 배포 전 품질 게이트 판정 및 테스트 자동화 파이프라인
+  - skill: operation
+    consumes: [quality_report]
+    usage: NFR 실측치 → SLO 기준선, 잔여 리스크 운영 대응
+  - skill: management
+    consumes: [test_strategy, requirements_traceability_matrix, quality_report]
+    usage: 테스트 일정/리소스, 커버리지 갭 리스크, 품질 현황 대시보드
+  - skill: security
+    consumes: [test_suites]
+    usage: 보안 테스트 케이스 연계
+
+dependencies:
+  upstream:
+    - skill: re
+      consumes: [requirements_spec, constraints, quality_attribute_priorities]
+    - skill: arch
+      consumes: [architecture_decisions, component_structure, technology_stack, diagrams]
+    - skill: impl
+      consumes: [implementation_map, code_structure, implementation_decisions, implementation_guide]

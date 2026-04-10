@@ -1,0 +1,286 @@
+name: impl
+version: 1.0.0
+description: >
+  Arch 스킬의 산출물(아키텍처 결정, 컴포넌트 구조, 기술 스택, 다이어그램)을 입력으로 받아,
+  설계를 실제 코드로 변환하는 구현(Implementation) 스킬.
+  기존 코드베이스 자동 분석과 기술 스택의 관용적 관행을 기반으로 코드 레벨 결정을 내리며,
+  Arch 결정이 코드 레벨에서 실현 불가능한 경우에만 사용자에게 에스컬레이션한다.
+
+agents:
+  generate:
+    name: 코드 생성
+    description: Arch 산출물을 기반으로 설계를 자동으로 실제 코드로 변환
+    system_prompt: agents/generate.md
+    prompt_template: prompts/generate.md
+    interaction_mode: auto-execute
+    escalation_only: true
+    adaptive_depth:
+      lightweight:
+        trigger: "Arch 경량 모드 (스타일 추천 + 디렉토리 가이드 수준)"
+        output: "단일 프로젝트 스캐폴딩 + 핵심 모듈 구현 + 인라인 구현 가이드"
+      heavyweight:
+        trigger: "Arch 중량 모드 (컴포넌트 정의 + C4 다이어그램 수준)"
+        output: "멀티 모듈 프로젝트 구조 + 컴포넌트별 구현 + 인터페이스 계약 코드 + IDR"
+    input:
+      architecture_decisions:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 주요 아키텍처 결정과 근거"
+        items:
+          id: { type: string, pattern: "^AD-\\d{3}$" }
+          title: { type: string }
+          decision: { type: string }
+          rationale: { type: string }
+          alternatives_considered: { type: array }
+          trade_offs: { type: string }
+          re_refs: { type: array, items: { type: string } }
+      component_structure:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 시스템 주요 컴포넌트와 관계"
+        items:
+          id: { type: string, pattern: "^COMP-\\d{3}$" }
+          name: { type: string }
+          responsibility: { type: string }
+          type: { type: string, enum: [service, library, gateway, store, queue, ui] }
+          interfaces: { type: array }
+          dependencies: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+      technology_stack:
+        type: array
+        required: true
+        description: "Arch design 산출물 — 선정된 기술과 근거"
+        items:
+          category: { type: string, enum: [language, framework, database, messaging, infra, tool] }
+          choice: { type: string }
+          rationale: { type: string }
+          decision_ref: { type: string }
+          constraint_ref: { type: string }
+      diagrams:
+        type: array
+        required: false
+        description: "Arch diagram 산출물 — Mermaid 다이어그램 목록"
+        items:
+          type: { type: string, enum: [c4-context, c4-container, sequence, data-flow] }
+          title: { type: string }
+          format: { type: string, enum: [mermaid] }
+          code: { type: string }
+          description: { type: string }
+    output:
+      implementation_map:
+        type: array
+        required: true
+        description: "Arch 컴포넌트와 실제 코드 모듈/파일 간의 매핑"
+        items:
+          id: { type: string, pattern: "^IM-\\d{3}$" }
+          component_ref: { type: string }
+          module_path: { type: string }
+          entry_point: { type: string }
+          internal_structure: { type: array }
+          interfaces_implemented: { type: array }
+          re_refs: { type: array, items: { type: string } }
+      code_structure:
+        type: object
+        required: true
+        description: "생성된 프로젝트의 전체 구조와 의존성"
+        properties:
+          project_root: { type: string }
+          directory_layout: { type: string }
+          module_dependencies: { type: array }
+          external_dependencies: { type: array }
+          build_config: { type: array }
+          environment_config: { type: array }
+      implementation_decisions:
+        type: array
+        required: true
+        description: "코드 레벨에서 내려진 주요 기술적 결정과 근거"
+        items:
+          id: { type: string, pattern: "^IDR-\\d{3}$" }
+          title: { type: string }
+          decision: { type: string }
+          rationale: { type: string }
+          alternatives_considered: { type: array }
+          pattern_applied: { type: string }
+          arch_refs: { type: array, items: { type: string } }
+          re_refs: { type: array, items: { type: string } }
+      implementation_guide:
+        type: object
+        required: true
+        description: "코드를 빌드, 실행, 확장하기 위한 가이드"
+        properties:
+          prerequisites: { type: array }
+          setup_steps: { type: array }
+          build_commands: { type: array }
+          run_commands: { type: array }
+          conventions: { type: array }
+          extension_points: { type: array }
+
+  review:
+    name: 코드 리뷰
+    description: 생성된 코드를 Arch 결정 준수 여부와 클린 코드 원칙 두 축으로 리뷰
+    system_prompt: agents/review.md
+    prompt_template: prompts/review.md
+    interaction_mode: auto-execute
+    escalation_only: true
+    input:
+      generated_code:
+        type: object
+        required: true
+        description: generate 에이전트가 생성한 코드 및 산출물
+      arch_output:
+        type: object
+        required: true
+        description: Arch 산출물 (검증 기준)
+    output:
+      review_report:
+        type: object
+        description: 리뷰 리포트
+        properties:
+          arch_compliance:
+            type: array
+            description: Arch 결정 준수 검증 결과
+          clean_code_issues:
+            type: array
+            description: 클린 코드 원칙 위반 사항
+          security_issues:
+            type: array
+            description: OWASP Top 10 수준 보안 이슈
+          line_feedback:
+            type: array
+            description: 라인별 피드백
+          auto_fixable:
+            type: array
+            description: 자동 수정 가능한 이슈 목록
+          escalations:
+            type: array
+            description: Arch 계약 위반 수준의 사용자 에스컬레이션
+      verdict:
+        type: string
+        enum: [PASS, FIX_REQUIRED, ESCALATE]
+        description: 리뷰 판정
+
+  refactor:
+    name: 리팩토링
+    description: 코드 스멜 탐지 및 Arch 결정을 유지하면서 안전한 리팩토링 수행
+    system_prompt: agents/refactor.md
+    prompt_template: prompts/refactor.md
+    interaction_mode: auto-execute
+    escalation_only: true
+    input:
+      target_code:
+        type: object
+        required: true
+        description: 리팩토링 대상 코드
+      review_report:
+        type: object
+        required: true
+        description: review 에이전트의 리뷰 리포트 (이슈 목록)
+      arch_output:
+        type: object
+        required: true
+        description: Arch 산출물 (경계 기준)
+    output:
+      code_smells:
+        type: array
+        description: 탐지된 코드 스멜 목록
+        items:
+          name: { type: string }
+          location: { type: string }
+          severity: { type: string, enum: [high, medium, low] }
+          refactoring_technique: { type: string }
+      refactored_code:
+        type: object
+        description: 리팩토링 완료된 코드
+      updated_implementation_map:
+        type: array
+        description: 갱신된 구현 맵
+      changes_summary:
+        type: array
+        description: 변경 사항 요약 (전후 비교)
+
+  pattern:
+    name: 디자인 패턴
+    description: generate 과정에서 식별된 패턴 적용 기회를 평가하고 적용
+    system_prompt: agents/pattern.md
+    prompt_template: prompts/pattern.md
+    interaction_mode: auto-execute
+    escalation_only: false
+    input:
+      problem_context:
+        type: object
+        required: true
+        description: 패턴 적용 대상 코드 또는 문제 상황
+      arch_output:
+        type: object
+        required: true
+        description: Arch 산출물 (결정된 패턴 참조)
+    output:
+      recommended_patterns:
+        type: array
+        description: 추천 패턴 목록
+        items:
+          pattern_name: { type: string }
+          category: { type: string, enum: [creational, structural, behavioral] }
+          arch_mandated: { type: boolean }
+          rationale: { type: string }
+          trade_offs: { type: string }
+      transformed_code:
+        type: object
+        description: 패턴 적용된 코드
+      implementation_decisions:
+        type: array
+        description: 패턴 적용에 따른 구현 결정 기록 (IDR)
+
+pipeline:
+  stages:
+    - agent: generate
+      checkpoint: false
+      description: Arch 산출물 기반 코드 자동 생성 (pattern 자동 호출 포함)
+    - agent: review
+      checkpoint: false
+      description: 생성된 코드의 Arch 준수 + 클린 코드 자동 리뷰
+    - agent: refactor
+      checkpoint: false
+      condition: "review.verdict == 'FIX_REQUIRED'"
+      description: 자동 수정 가능한 이슈의 리팩토링
+    - agent: review
+      checkpoint: false
+      condition: "refactor 수행 시 재리뷰"
+      description: 리팩토링 결과 재리뷰
+  escalation:
+    trigger: "review.verdict == 'ESCALATE'"
+    description: Arch 결정이 코드 레벨에서 실현 불가능한 경우 사용자에게 에스컬레이션
+  completion:
+    description: 에스컬레이션 없이 전체 자동 생성 후 최종 산출물 4섹션 보고
+
+dependencies:
+  upstream:
+    - skill: arch
+      agent: design
+      consumes: [architecture_decisions, component_structure, technology_stack]
+      usage: 코드 생성의 근거 및 구조 결정
+    - skill: arch
+      agent: diagram
+      consumes: [diagrams]
+      usage: 모듈 경계 확인, 메서드 호출 흐름, 데이터 변환 로직 구현
+    - skill: re
+      indirect: true
+      via: "arch 산출물의 re_refs, constraint_ref"
+      usage: 요구사항 추적성 유지 및 제약 조건 준수
+
+consumers:
+  - skill: qa
+    consumes: [implementation_map, code_structure, implementation_decisions]
+    usage: 테스트 대상 모듈 식별, 테스트 구조/커버리지 경계, 패턴별 테스트 전략
+  - skill: security
+    consumes: [implementation_map, implementation_decisions]
+    usage: 코드 레벨 공격 표면, 구현 수준 보안 함의
+  - skill: deployment
+    consumes: [code_structure, implementation_guide]
+    usage: 빌드/패키징 단위, 빌드/실행 환경
+  - skill: operation
+    consumes: [implementation_map, implementation_guide]
+    usage: 운영 대상 모듈, 운영 절차 기반
+  - skill: management
+    consumes: [implementation_decisions, implementation_guide]
+    usage: 기술 부채 추적, 온보딩/유지보수 가이드
