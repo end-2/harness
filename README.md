@@ -11,6 +11,7 @@ Harness는 소프트웨어 개발 생명주기(SDLC) 전 영역에 걸친 AI 스
 필요한 영역의 스킬을 개별적으로 설치합니다:
 
 ```bash
+npx skills add ex
 npx skills add re
 npx skills add arch
 npx skills add impl
@@ -30,6 +31,7 @@ npx skills add orch
 
 ```
 harness/
+├── ex/               # 프로젝트 탐색 및 컨텍스트 맵
 ├── re/               # 요구사항 공학
 ├── arch/             # 소프트웨어 아키텍처
 ├── impl/             # 구현 및 코딩
@@ -38,6 +40,17 @@ harness/
 ├── devops/           # 배포, 릴리스, 운영 및 모니터링
 └── orch/    # 스킬 오케스트레이션
 ```
+
+### ex — 프로젝트 탐색
+
+기존 프로젝트의 코드베이스를 자동 분석하여, LLM 컨텍스트 윈도우에 최적화된 프로젝트 맵(Project Map)을 생성합니다. 프로젝트 루트 경로만으로 전체 분석을 자동 실행하며, 프로젝트 복잡도에 따라 경량/중량 모드를 자동 전환합니다.
+
+| Agent | 설명 |
+|-------|------|
+| `ex:scan` | 프로젝트 디렉토리 구조 스캔, 파일 분류, 진입점 식별, 적응적 깊이 모드 결정 |
+| `ex:detect` | 매니페스트 파일, 설정 파일, 코드 패턴을 분석하여 기술 스택 자동 탐지 |
+| `ex:analyze` | import/require 분석으로 모듈 의존성 그래프 구축, 컴포넌트 경계 및 아키텍처 스타일 추론 |
+| `ex:map` | scan + detect + analyze 결과를 토큰 효율 최적화하여 4섹션 최종 산출물로 통합 |
 
 ### re — 요구사항 공학
 
