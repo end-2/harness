@@ -1,4 +1,4 @@
-# Orchestration Skill 구현 계획
+# Orch (Orchestration) Skill 구현 계획
 
 ## 개요
 
@@ -17,7 +17,7 @@
 ## 목표 구조
 
 ```
-orchestration/
+orch/
 ├── skills.yaml
 ├── agents/
 │   ├── dispatch.md
