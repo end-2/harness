@@ -2,7 +2,7 @@
 
 ## 개요
 
-모든 스킬(re, arch, impl, qa, sec, devops)의 실행을 조율하는 **컨트롤 플레인**입니다.
+모든 스킬(ex, re, arch, impl, qa, sec, devops)의 실행을 조율하는 **컨트롤 플레인**입니다.
 사용자는 항상 이 orchestration을 통해 통신하며, 개별 스킬을 직접 호출하지 않습니다.
 
 **핵심 책임**:
@@ -33,9 +33,13 @@ orch/
 │   └── dialogue-protocol.md
 ├── pipelines/
 │   ├── full-sdlc.md
+│   ├── full-sdlc-existing.md
 │   ├── new-feature.md
+│   ├── new-feature-existing.md
 │   ├── security-gate.md
-│   └── quick-review.md
+│   ├── security-gate-existing.md
+│   ├── quick-review.md
+│   └── explore.md
 ├── prompts/
 │   ├── dispatch.md
 │   ├── pipeline.md
@@ -59,11 +63,17 @@ orch/
 
 ```
 <output-root>/
+├── current-run.md                          # 현재 실행 상태 스냅샷
 └── runs/
     └── <run-id>/                           # 형식: YYYYMMDD-HHmmss-<4자리-해시>
         ├── run.meta.md                     # 실행 메타데이터, 파이프라인 상태
         ├── project-structure.md            # 프로젝트 구조 문서 (완료 시 생성)
         ├── release-note.md                 # 릴리스 노트 (완료 시 생성)
+        ├── ex/
+        │   ├── project_structure_map.md
+        │   ├── technology_stack_detection.md
+        │   ├── component_relationship_analysis.md
+        │   └── architecture_inference.md
         ├── re/
         │   ├── requirements_spec.md
         │   ├── constraints.md
@@ -93,6 +103,41 @@ orch/
             ├── infrastructure_code.md
             ├── observability_config.md
             └── operational_runbooks.md
+```
+
+### `current-run.md` 스키마
+
+실행 중인 run의 현재 상태 스냅샷입니다. `run.meta.md`가 상세 이력이라면, 이 파일은 현재 스냅샷에 집중합니다.
+에이전트가 시작 시 이 파일 하나만 읽으면 현재 상황을 즉시 파악할 수 있습니다.
+
+```markdown
+# Current Run State
+
+## Active Run
+- run_id: 20260410-143022-a7f3
+- pipeline: full-sdlc
+- status: running
+- current_step: arch:design
+- current_step_status: dialogue
+- last_updated: 2026-04-10T14:36:46+09:00
+
+## Quick Context
+- completed: [re:elicit, re:analyze, re:spec]
+- pending: [impl:generate, qa:generate, sec:audit, devops:pipeline]
+- user_action_needed: true
+- last_question_summary: "기술 스택 선택 대기 중"
+```
+
+활성 run이 없으면 `status: idle`로 표시합니다:
+
+```markdown
+# Current Run State
+
+## Active Run
+- run_id: (none)
+- status: idle
+- last_completed_run: 20260410-143022-a7f3
+- last_updated: 2026-04-10T15:20:00+09:00
 ```
 
 ### `run.meta.md` 스키마
@@ -136,9 +181,11 @@ orch/
   - 자연어 의도 분석 및 스킬/에이전트 매핑
   - 복합 요청의 다중 스킬 분해 → 파이프라인 정의 생성
   - 선행 조건 검증 (예: arch:design 실행 전 RE 산출물 존재 여부 확인)
+  - **기존 프로젝트 감지**: 사용자가 기존 코드베이스를 언급하거나 프로젝트 경로를 지정하면 ex 스킬을 파이프라인 선두에 배치
   - 기존 실행(run) 재개 요청 인식 및 라우팅
   - 컨텍스트 기반 라우팅 (현재 작업 단계 고려)
-- **입력**: 사용자 자연어 요청, 현재 run 상태 (재개 시)
+  - `current-run.md` 읽기를 통한 즉시 컨텍스트 파악 (run 디렉토리 스캔 불필요)
+- **입력**: 사용자 자연어 요청, `current-run.md` (현재 상태 스냅샷)
 - **출력**: 파이프라인 정의 (스킬 목록 + 실행 순서 + 병렬 그룹) 또는 단일 스킬 호출 지시
 
 ### 2. `pipeline.md` — 파이프라인 에이전트
@@ -169,9 +216,13 @@ orch/
   ```
 - **사전 정의 파이프라인**:
   - `full-sdlc`: re:elicit → re:analyze → re:spec → arch:design → impl:generate → [qa:generate, sec:audit, devops:pipeline] (병렬)
+  - `full-sdlc-existing`: ex:scan → ex:detect → ex:analyze → ex:map → re:elicit → re:analyze → re:spec → arch:design → impl:generate → [qa:generate, sec:audit, devops:pipeline] (병렬)
   - `new-feature`: re:elicit → re:spec → arch:design → impl:generate → qa:generate
+  - `new-feature-existing`: ex:scan → ex:detect → ex:analyze → ex:map → re:elicit → re:spec → arch:design → impl:generate → qa:generate
   - `security-gate`: sec:threat-model → sec:audit → sec:compliance
+  - `security-gate-existing`: ex:scan → ex:detect → ex:analyze → ex:map → sec:threat-model → sec:audit → sec:compliance
   - `quick-review`: re:review → arch:review → impl:review
+  - `explore`: ex:scan → ex:detect → ex:analyze → ex:map
 - **입력**: 파이프라인 정의 (dispatch 출력), run-id, 산출물 경로
 - **출력**: 각 스킬 실행 결과 집계, 전체 워크플로 요약
 
@@ -224,22 +275,24 @@ orch/
 
 - **역할**: 실행(run) 생명주기 관리, 산출물 디렉토리 생성/관리, 상태 추적, 재개 지원
 - **핵심 역량**:
-  - **초기화**: run-id 생성, `<output-root>/runs/<run-id>/` 디렉토리 구조 생성, `run.meta.md` 작성
+  - **초기화**: run-id 생성, `<output-root>/runs/<run-id>/` 디렉토리 구조 생성, `run.meta.md` 작성, `current-run.md` 갱신
   - **산출물 저장 위치**: 사용자 설정에서 출력 루트 경로 읽기 (기본: `./harness-output/`)
-  - **산출물 검증**: 스킬 완료 시 필수 섹션 존재 여부 검증 (RE=3개, ARCH=4개, IMPL=4개, QA=4개, SEC=4개, DEVOPS=4개)
+  - **산출물 검증**: 스킬 완료 시 필수 섹션 존재 여부 검증 (EX=4개, RE=3개, ARCH=4개, IMPL=4개, QA=4개, SEC=4개, DEVOPS=4개)
   - **산출물 저장**: 검증 통과한 산출물을 해당 스킬 디렉토리에 Markdown 파일로 저장
-  - **상태 추적**: `run.meta.md`에 각 스킬 상태 실시간 업데이트
-  - **재개(resume)**: `run.meta.md`를 읽어 completed 스킬은 건너뛰고 중단 지점부터 재실행
+  - **상태 추적**: `run.meta.md`에 각 스킬 상태 실시간 업데이트, 매 상태 변경 시 `current-run.md` 동기화
+  - **재개(resume)**: `current-run.md`로 활성 run 즉시 확인 → `run.meta.md`에서 상세 상태 로드 → 중단 지점부터 재실행
   - **완료 문서 생성**: 파이프라인 완료 후 `project-structure.md`와 `release-note.md` 생성
+  - **완료 시 정리**: `current-run.md`를 `status: idle`로 갱신, `last_completed_run` 기록
 - **실행 생명주기**:
   ```
-  INIT → CONFIGURE → EXECUTE → COLLECT → REPORT
-    │        │           │         │         │
+  INIT → CONFIGURE → EXECUTE → COLLECT → REPORT → CLEANUP
+    │        │           │         │         │         │
+    │        │           │         │         │         └─ current-run.md → idle 상태로 갱신
     │        │           │         │         └─ 프로젝트 구조/릴리스 노트 생성 + 최종 요약
     │        │           │         └─ 산출물 검증 + 저장
-    │        │           └─ 스킬 실행 (대화 릴레이 포함)
+    │        │           └─ 스킬 실행 (대화 릴레이 포함) + 매 단계 current-run.md 동기화
     │        └─ 파이프라인 결정, 출력 디렉토리 설정, 규칙 로드
-    └─ run 디렉토리 생성, run-id 발급, 메타데이터 기록
+    └─ run 디렉토리 생성, run-id 발급, 메타데이터 기록, current-run.md 갱신
   ```
 - **입력**: 파이프라인 정의, 출력 설정
 - **출력**: run 디렉토리 경로, 상태 업데이트, 완료 보고
@@ -305,7 +358,7 @@ orch/
 ### `escalation-protocol.md` — 에스컬레이션 규약
 
 - **대화형 스킬** (re:elicit, re:analyze, re:spec, re:review, arch:design, sec:threat-model): 의미 있는 질문 묶음마다 `needs_user_input` 사용
-- **자동 실행 스킬** (impl:*, qa:*, sec:audit, sec:review, sec:compliance, devops:*): 예외 조건에서만 `needs_user_input` 사용 (예: 아키텍처 결정이 코드로 실현 불가능한 경우)
+- **자동 실행 스킬** (ex:*, impl:*, qa:*, sec:audit, sec:review, sec:compliance, devops:*): 예외 조건에서만 `needs_user_input` 사용 (예: 아키텍처 결정이 코드로 실현 불가능한 경우, 프로젝트 루트 접근 불가 등)
 - 모든 에스컬레이션에 포함: 질문 텍스트, 맥락(왜 중요한지), 유형(open/choice/confirmation)
 
 ### `dialogue-protocol.md` — 대화 프로토콜
@@ -327,11 +380,28 @@ re:elicit → re:analyze → re:spec → arch:design → impl:generate → [qa:g
 - 마지막 3개 스킬은 impl 완료 후 병렬 실행
 - 모든 스킬 완료 후 프로젝트 구조 문서 + 릴리스 노트 생성
 
+### `full-sdlc-existing.md` — 기존 프로젝트 전체 SDLC 파이프라인
+
+```
+ex:scan → ex:detect → ex:analyze → ex:map → re:elicit → re:analyze → re:spec → arch:design → impl:generate → [qa:generate, sec:audit, devops:pipeline]
+```
+- ex 4단계가 자동 실행으로 기존 코드베이스 컨텍스트 추출
+- ex 산출물이 re:elicit에 업스트림 입력으로 주입되어 기존 시스템 맥락 반영
+- 이후 흐름은 full-sdlc와 동일
+
 ### `new-feature.md` — 신규 기능 개발 파이프라인
 
 ```
 re:elicit → re:spec → arch:design → impl:generate → qa:generate
 ```
+
+### `new-feature-existing.md` — 기존 프로젝트 신규 기능 개발 파이프라인
+
+```
+ex:scan → ex:detect → ex:analyze → ex:map → re:elicit → re:spec → arch:design → impl:generate → qa:generate
+```
+- ex가 기존 코드 구조/기술 스택/컴포넌트 관계를 추출하여 후속 스킬에 컨텍스트 제공
+- arch:design이 기존 아키텍처 제약을 전제로 설계
 
 ### `security-gate.md` — 보안 게이트 파이프라인
 
@@ -339,11 +409,26 @@ re:elicit → re:spec → arch:design → impl:generate → qa:generate
 sec:threat-model → sec:audit → sec:compliance
 ```
 
+### `security-gate-existing.md` — 기존 프로젝트 보안 게이트 파이프라인
+
+```
+ex:scan → ex:detect → ex:analyze → ex:map → sec:threat-model → sec:audit → sec:compliance
+```
+- ex가 컴포넌트/API 표면을 추출하여 sec:threat-model의 공격 표면 식별에 활용
+
 ### `quick-review.md` — 빠른 리뷰 파이프라인
 
 ```
 re:review → arch:review → impl:review
 ```
+
+### `explore.md` — 코드베이스 탐색 파이프라인
+
+```
+ex:scan → ex:detect → ex:analyze → ex:map
+```
+- ex 스킬만 단독 실행하여 기존 프로젝트의 구조화된 컨텍스트 맵 생성
+- 후속 스킬 연계 없이 코드베이스 이해 목적으로 사용
 
 ---
 
@@ -355,8 +440,9 @@ re:review → arch:review → impl:review
 
 타겟 프로젝트의 전체적인 구조를 사람이 파악할 수 있도록 정리:
 - 전체 디렉토리 구조 및 각 모듈/컴포넌트의 역할 설명
-- 기술 스택 요약 (arch 산출물 기반)
+- 기술 스택 요약 (ex 또는 arch 산출물 기반)
 - 의존성 관계도 (컴포넌트 간, 외부 라이브러리)
+- 기존 코드베이스 컨텍스트 (ex 산출물이 있는 경우 — 기존 구조와 신규 변경 사항 대비)
 - 설정/빌드/실행 가이드 (impl 산출물 기반)
 
 ### `release-note.md` — 릴리스 노트
@@ -386,6 +472,7 @@ re:review → arch:review → impl:review
 2. RUN: 초기화
    → ./harness-output/runs/20260410-143022-a7f3/ 생성
    → run.meta.md 작성
+   → current-run.md 갱신 (status: running, current_step: re:elicit)
 
 3. PIPELINE: 실행 시작
 
@@ -420,7 +507,59 @@ re:review → arch:review → impl:review
    [Step 7] 완료 문서 생성
    → project-structure.md + release-note.md 생성
 
+   [Step 8] 정리
+   → current-run.md 갱신 (status: idle, last_completed_run: 20260410-143022-a7f3)
+
 4. PIPELINE: 최종 요약을 사용자에게 보고
+```
+
+### 기존 프로젝트에 기능 추가 (ex 선행)
+
+```
+사용자: "~/projects/my-app 에 실시간 알림 기능을 추가하고 싶어"
+
+1. DISPATCH: 의도 분석
+   → 기존 프로젝트 경로 감지 (~/projects/my-app)
+   → 기존 프로젝트 + 기능 추가 → new-feature-existing 파이프라인 선택
+   → 출력: pipeline = [ex:scan, ex:detect, ex:analyze, ex:map, re:elicit, re:spec, arch:design, impl:generate, qa:generate]
+
+2. RUN: 초기화
+   → ./harness-output/runs/20260410-160000-b2c4/ 생성
+   → run.meta.md 작성
+   → current-run.md 갱신 (status: running, current_step: ex:scan)
+
+3. PIPELINE: 실행 시작
+
+   [Step 1~4] ex:scan → ex:detect → ex:analyze → ex:map (자동 실행)
+   → 4단계 순차 실행, 사용자 개입 없음
+   → ex:scan: 디렉토리 스캔 + 복잡도 판별 (중량 모드)
+   → ex:detect: 기술 스택 탐지 (Next.js + Prisma + PostgreSQL)
+   → ex:analyze: 컴포넌트 관계 + 아키텍처 추론 (layered)
+   → ex:map: 4섹션 통합 산출물 생성 (토큰 예산 내)
+   → RUN: 검증 + runs/<id>/ex/ 에 4개 파일 저장
+
+   [Step 5] re:elicit (대화형)
+   → 에이전트 스폰: base.md + re/agents/elicit.md + ex 산출물(runs/<id>/ex/*.md)
+   → ex 산출물로 기존 시스템 맥락이 주입된 상태에서 요구사항 도출
+   → "기존 Next.js + Prisma 구조에서 실시간 알림을 어떤 방식으로 구현할까요? WebSocket? SSE?"
+   → ... (대화 진행) ...
+
+   [Step 6~9] re:spec → arch:design → impl:generate → qa:generate
+   → 이후 흐름은 new-feature와 동일 (단, 모든 스킬이 ex 산출물을 참조 가능)
+```
+
+### 코드베이스 탐색 (ex 단독)
+
+```
+사용자: "~/projects/legacy-api 코드 좀 분석해줘"
+
+1. DISPATCH: 의도 분석
+   → 기존 프로젝트 분석 요청 → explore 파이프라인 선택
+   → 출력: pipeline = [ex:scan, ex:detect, ex:analyze, ex:map]
+
+2. RUN: 초기화 + PIPELINE: 자동 실행
+   → ex 4단계 자동 실행 → 4섹션 산출물 생성
+   → 사용자에게 프로젝트 구조 맵, 기술 스택, 컴포넌트 관계, 아키텍처 추론 결과 보고
 ```
 
 ### 실행 재개
@@ -429,13 +568,14 @@ re:review → arch:review → impl:review
 사용자: "아까 중단된 실행 이어서 해줘"
 
 1. DISPATCH: 재개 요청 인식
-   → 최근 미완료 run 검색 → run-id 확인
+   → current-run.md 읽기 → 활성 run-id 즉시 확인 (디렉토리 스캔 불필요)
    → pipeline 에이전트에 재개 모드로 전달
 
-2. PIPELINE: run.meta.md 로드
+2. PIPELINE: run.meta.md 로드 (current-run.md에서 확인한 run-id 사용)
    → completed 스킬(re:elicit, re:spec) 건너뜀
    → arch:design (dialogue 상태)부터 재실행
    → 이전 산출물은 runs/<id>/ 에서 로드하여 활용
+   → current-run.md 갱신 (status: running, current_step: arch:design)
 ```
 
 ---
@@ -450,7 +590,8 @@ re:review → arch:review → impl:review
 6. **점진적 복잡성**: 단일 스킬 호출부터 복잡한 파이프라인까지 단계적 사용 가능
 7. **관찰 가능성**: 모든 스킬 실행 과정이 `run.meta.md`에 기록되어 추적/디버깅 가능
 8. **사용자 개입 중계**: 대화형 스킬의 질문과 자동 실행 스킬의 예외를 통일된 relay 메커니즘으로 전달
-9. **재개 가능성**: 중단된 실행을 상태 기반으로 재개 가능
+9. **재개 가능성**: `current-run.md`를 통해 활성 run을 즉시 식별하고, 중단된 실행을 상태 기반으로 재개 가능
+10. **빠른 컨텍스트 복원**: `current-run.md` 단일 파일로 현재 실행 상태를 즉시 파악 — 디렉토리 스캔 불필요
 
 ---
 
@@ -477,7 +618,7 @@ re:review → arch:review → impl:review
 
 ### 4단계: 파이프라인 템플릿 (`pipelines/`)
 
-- `full-sdlc.md`, `new-feature.md`, `security-gate.md`, `quick-review.md`
+- `full-sdlc.md`, `full-sdlc-existing.md`, `new-feature.md`, `new-feature-existing.md`, `security-gate.md`, `security-gate-existing.md`, `quick-review.md`, `explore.md`
 
 ### 5단계: 프롬프트 및 예시
 
