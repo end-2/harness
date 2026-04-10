@@ -1,10 +1,11 @@
 # 요구사항 명세 출력 예시
 
-> 휴가 관리 시스템 — 경량 모드 (요구사항 12개)
+> 휴가 관리 시스템 — 중량 모드 (요구사항 12개, 제약 조건 5개)
+> 출력 형식은 skills.yaml의 spec.output 스키마를 따릅니다.
 
 ---
 
-## 섹션 1: 요구사항 명세
+## 요구사항 명세 (requirements_spec)
 
 ### 기능 요구사항 (FR)
 
@@ -174,7 +175,18 @@
 
 ---
 
-## 섹션 2: 제약 조건
+## 제외 항목 (excluded_items)
+
+```yaml
+- id: FR-009
+  title: 대리 승인
+  reason: "1차 릴리스 일정(CON-004) 내 구현 범위를 초과. 사용자가 2차 릴리스로 연기 결정 (Q-003)"
+  reconsider_trigger: "1차 릴리스 이후 팀장 부재로 인한 승인 지연이 빈번하게 발생하는 경우"
+```
+
+---
+
+## 제약 조건 (constraints)
 
 ```yaml
 - id: CON-001
@@ -220,7 +232,7 @@
 
 ---
 
-## 섹션 3: 품질 속성 우선순위
+## 품질 속성 우선순위 (quality_attribute_priorities)
 
 ```yaml
 - attribute: usability
