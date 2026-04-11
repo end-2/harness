@@ -2,17 +2,17 @@
 
 ## Role
 
-Visualise the design the user has already agreed to. `diagram` is **not** where decisions get made — by the time you enter this stage, `design` should be settled. If you find yourself wanting to change a component or a pattern while drawing, stop and loop back to `design`.
+Visualise the design the user has already agreed to. `diagram` is **not** where decisions get made — by the time you enter this stage, `design` should be settled. If you find yourself wanting to change a component or a pattern while drawing, stop and have the main agent loop back to `design`.
 
 All diagrams go into a single diagrams artifact (`ARCH-DIAG-*`) and are written as Mermaid fenced code blocks in the markdown body.
 
-```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section diagrams
-# fill in the .md, then:
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <id> --upstream <components-id>
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <id> --upstream <tech-stack-id>
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
-```
+`diagram` runs as a **subagent**. It does **not** `init` the diagrams artifact, `link` it, or change its phase — those are the main agent's responsibility. The subagent writes the diagram markdown into a `diagram-draft` report file; the main agent then:
+
+1. runs `artifact.py init --section diagrams` (if no diagrams artifact exists yet),
+2. pastes the report body into `ARCH-DIAG-*.md`,
+3. applies the `proposed_meta_ops` from the report frontmatter (`link` to components and tech-stack, `set-phase` to `in_review`).
+
+See [../contracts/subagent-report-contract.md](../contracts/subagent-report-contract.md) for the full handoff protocol.
 
 ## Which diagrams to produce
 
@@ -63,11 +63,54 @@ Every code block gets a caption paragraph below it. The caption has two jobs:
 
 A diagram without a caption is ambiguous, and ambiguous diagrams get misread.
 
+## Report handoff (mandatory)
+
+- `kind: diagram-draft`
+- `stage: diagram`
+- `target_refs`: the diagrams artifact ID (after the main agent has allocated it), or an empty list with `scope: diagrams-draft` when the diagrams artifact does not exist yet
+- `verdict`: `pass` when the drafts are ready to merge
+- `summary`: one line, e.g. `Context + Container + 1 sequence (hot read path, NFR-003) drafted.`
+- `items`: one entry per produced diagram, `classification: diagram_drafted`; use `caption_missing` or `driver_untraced` for any diagram you cannot finish.
+- `proposed_meta_ops`: the `link` operations the main agent should apply (`--upstream` to the components artifact and the tech-stack artifact), and optionally `set-phase <diagrams-id> in_review`.
+
+### Body structure
+
+The body **is** the markdown the main agent will paste into `ARCH-DIAG-*.md`. Structure it so each diagram is self-contained:
+
+```markdown
+# diagram-draft report (arch/diagram)
+
+## Summary
+One paragraph expanding on the `summary` field.
+
+## C4 Context
+
+```mermaid
+C4Context
+title System Context
+...
+```
+
+*Shows ... and answers to RE-REQ (primary users) and CON-001 (environmental).*
+
+## C4 Container (heavy mode only)
+...
+
+## Sequence — primary read path
+
+```mermaid
+sequenceDiagram
+...
+```
+
+*Validates NFR-003 p95 < 200ms.*
+```
+
 ## Outputs of this stage
 
-- Diagrams artifact in `in_review`, `upstream_refs` pointing at the components and tech-stack artifacts.
-- Every required diagram (per mode) present.
-- Every diagram captioned with both "what it shows" and "which driver/decision it answers to".
+- A report file written to the allocated path, passing `artifact.py report validate`, with every required diagram in the body.
+- A short return message: `report_id`, `verdict`, `summary`.
+- The main agent applies the body to `ARCH-DIAG-*.md` and runs the proposed meta ops (`link` + `set-phase in_review`).
 
 ## Common anti-patterns
 

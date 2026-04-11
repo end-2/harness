@@ -4,12 +4,15 @@
 
 Take the review report's auto-fixable issue list and transform the code to resolve them, without crossing Arch component boundaries. This stage **runs in a subagent**, so it focuses only on the issue list and the current source tree.
 
+The subagent **does not edit source files or Impl sections directly**. It writes a `refactor` report file whose body includes concrete diffs (patches), and returns only `report_id + verdict + summary`. The main agent then applies the patches via `Edit`/`Write` and runs any `proposed_meta_ops`. See [../contracts/subagent-report-contract.md](../contracts/subagent-report-contract.md) for the full handoff protocol.
+
 ## Inputs to the subagent
 
-- The review report produced by Stage 3.
+- The review report (pass the `report_id`; the subagent loads it via `artifact.py report show <report_id>`).
 - The current source tree.
-- The four Impl section artifacts (for traceability updates).
-- The four Arch artifacts (to enforce boundary respect).
+- The four Impl section artifact paths (read-only; for traceability references).
+- The four Arch artifact paths (to enforce boundary respect).
+- The **allocated report file path** for this refactor pass (the main agent called `artifact.py report path --kind refactor --stage refactor --scope all`).
 
 ## Scope
 
@@ -35,37 +38,80 @@ Use the standard refactoring names so the IDRs and commit messages read consiste
 
 ## Safety rules
 
-1. **One change at a time.** Do not batch unrelated refactors into a single step.
+1. **One change at a time.** Do not batch unrelated refactors into a single diff hunk — keep each `items[]` entry's patch self-contained so the main agent can apply them one by one and reject individual ones if needed.
 2. **Preserve behaviour.** Never introduce new features or fix unrelated bugs while refactoring.
-3. **Respect boundaries.** Before every edit, check the target file's Arch component via its `IMPL-MAP-*` entry. If the edit would cross the boundary, stop and escalate.
-4. **Keep the build green.** After each step, the code must still compile / type-check. Do not leave half-migrated state.
-5. **Update traceability immediately.** If a refactor moves a file, update the relevant `IMPL-MAP-*` entry's `internal_structure` and re-run:
-   ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-progress <impl-map-id> --completed N --total M
+3. **Respect boundaries.** Before proposing a patch, check the target file's Arch component via its `IMPL-MAP-*` entry. If the change would cross the boundary, **do not** write the patch — emit an item with `classification: boundary_escalation` instead.
+4. **Keep the proposed build green.** Any patch you propose must leave the code compiling / type-checking after application. Do not propose half-migrated state.
+5. **Flag traceability updates in meta ops.** If a refactor moves a file, do **not** call `artifact.py set-progress` yourself — propose it in `proposed_meta_ops`:
+   ```yaml
+   proposed_meta_ops:
+     - cmd: set-progress
+       artifact_id: IMPL-MAP-001
+       completed: 5
+       total: 6
    ```
 
 ## Recording the refactor
 
-For each non-trivial refactor (anything more than a rename or a constant extraction), add an IDR block to the Implementation Decisions section:
+For each non-trivial refactor (anything more than a rename or a constant extraction), emit an item with `classification: idr_added` and include the IDR block markdown in the report body's "IDRs to merge" section. The main agent will apply it to the Implementation Decisions section's `.md` file. To link the IDR to an Arch ref, emit the link as a proposed meta op:
 
-- Title: "Refactor: <what changed>"
-- Decision: the refactor name from Fowler's catalogue.
-- Rationale: the review finding (severity + location) that triggered it.
-- Refs: link upstream to the review finding's Arch ref if any:
-  ```
-  python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
-  ```
+```yaml
+proposed_meta_ops:
+  - cmd: link
+    artifact_id: IMPL-IDR-001
+    upstream: ARCH-DEC-002
+```
 
-Trivial refactors (rename a local variable, fix a magic number) can live in code only.
+Trivial refactors (rename a local variable, fix a magic number) can live in code only and do not need an IDR item.
 
-## Output
+## Report handoff (mandatory)
 
-Return to the main agent:
+- `kind: refactor`
+- `stage: refactor`
+- `target_refs`: the four Impl section IDs
+- `verdict`: `pass` when all auto-fixable issues are resolved and no escalations remain, `at_risk` when some issues required boundary escalation
+- `summary`: one line, e.g. `4 refactors applied (3 Extract Method, 1 Extract Class), 1 boundary escalation.`
+- `items`: one entry per refactor applied or escalation raised. Classifications: `refactor_applied`, `idr_added`, `boundary_escalation`.
 
-1. The code changes (as a patch or as a list of file edits the main agent can Apply).
-2. A diff-ready summary of IDR additions for the Implementation Decisions markdown.
-3. Any issues that turned out to require boundary crossings and need escalation.
+### Body structure
+
+```markdown
+# refactor report (impl/refactor)
+
+## Summary
+One paragraph expanding on the `summary` field.
+
+## Applied refactors
+1. **Extract Class: SessionStore** — resolved review item #1 in <previous review report_id>.
+   - Files: src/auth/service.ts, src/auth/session_store.ts (new)
+   - IDR added: see IDRs to merge below
+
+## Patches
+```diff
+--- a/src/auth/service.ts
++++ b/src/auth/service.ts
+@@ ...
+```
+
+## IDRs to merge into IMPL-IDR-*.md
+### IDR-011 — Extract SessionStore
+**Decision:** Extract Class → SessionStore
+**Rationale:** review item #1 (SRP violation)
+...
+
+## Escalations
+Issues that would require crossing an Arch boundary and so could not be auto-fixed. Each matches an `items[]` entry with `classification: boundary_escalation`.
+```
 
 ## Hand-off back to review
 
-After the main agent applies the refactor subagent's output, re-enter Stage 3 (`review`) with a fresh subagent. Loop until the review report has only escalation-level items or is empty. Only then run `artifact.py approve` on each of the four Impl sections.
+The subagent returns `report_id + verdict + summary` only. The main agent:
+
+1. Runs `artifact.py report validate <report_id>`.
+2. Reads the body via `artifact.py report show <report_id>`.
+3. Applies each patch via `Edit`/`Write`, keeping the build green between patches (if any patch fails, escalate the specific item to the user instead of forcing the rest).
+4. Pastes the "IDRs to merge" section into `IMPL-IDR-*.md`.
+5. Runs each entry from `proposed_meta_ops`.
+6. Re-enters Stage 3 (`review`) with a fresh subagent and a fresh report path.
+
+Loop until the review report has only escalation-level items or is empty. Only then run `artifact.py approve` on each of the four Impl sections.

@@ -2,9 +2,11 @@
 
 ## Role
 
-Verify that the three `in_review` artifacts produced by `spec` are good enough to hand off to downstream skills. Catch mistakes you (or the user) missed during drafting, flag anything that needs a human decision, and — once everything is clean — move the artifacts to `approved`.
+Verify that the three `in_review` artifacts produced by `spec` are good enough to hand off to downstream skills. Catch mistakes you (or the user) missed during drafting, flag anything that needs a human decision, and — once everything is clean — have the main agent move the artifacts to `approved`.
 
 This is the last gate before downstream consumption. If something leaves `review` in a broken state, `arch` and `qa` will quietly produce broken derivatives. Do not wave things through.
+
+`review` runs as a **subagent**, so it does not talk to the user directly and it does not call `artifact.py approve` itself — it writes a report file and the main agent applies the verdict. Read [../contracts/subagent-report-contract.md](../contracts/subagent-report-contract.md) for the full handoff protocol.
 
 ## Core capabilities
 
@@ -72,9 +74,48 @@ Some issues you cannot fix on your own. Examples:
 
 Bring each escalation to the user with a compact summary and a specific question. Do not approve the artifact until these are resolved.
 
-## Approval
+## Report handoff (mandatory)
 
-Once all artifacts pass validate + downstream fitness and the user is satisfied:
+All findings go into the allocated report file — **not** into the return message. Fill the frontmatter and body per the contract:
+
+- `kind: review`
+- `stage: review`
+- `target_refs`: the three `in_review` artifact IDs
+- `verdict`: `pass` if everything is clean and the main agent can approve after the user says go, `at_risk` if there are fixable issues the main agent must address before approval, `fail` if something must go back to `spec` or `analyze`
+- `summary`: one line, e.g. `SMART-clean except NFR-002 missing metric; 1 traceability gap on FR-004; downstream fitness OK.`
+- `items`: each finding as a single item. Use `classification ∈ {smart_violation, constraint_inconsistency, traceability_gap, downstream_fitness, escalation}`.
+- `proposed_meta_ops`: optional. Small fixes that the main agent can apply directly (e.g. a missing `link` between RE-REQ and RE-CON). **Never** propose `set-phase` or `approve` here — those are the main agent's call after user go-ahead.
+
+### Body structure
+
+```markdown
+# review report (re/review)
+
+## Summary
+One paragraph expanding on the `summary` field.
+
+## SMART check
+Per-requirement pass/fail, with the specific reason on failures.
+
+## Constraint consistency
+Cross-checks between constraint pairs and between constraints and `Must` requirements.
+
+## Quality attribute coherence
+Per-QA check for metric, trade-off notes, and top-3 rationale.
+
+## Traceability
+Findings from the `artifact.py validate` run plus anything the subagent spotted by eye.
+
+## Downstream fitness
+One bullet per downstream skill (`arch:design`, `qa:strategy`, `impl:generate`, `security:threat-model`, `deployment:strategy`, `operation:slo`) — does the artifact carry enough for that consumer?
+
+## Escalations
+Bullet list of items only the user can resolve (mirrors `items[]` with `classification: escalation`).
+```
+
+## Approval (main agent only)
+
+The review subagent **never** calls `artifact.py approve`. When its report comes back with `verdict: pass` (or `at_risk` after the main agent has fixed the auto-fixable items and the user has accepted the rest), the main agent runs:
 
 ```bash
 python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <RE-REQ-id> --approver <user> --notes "…"
@@ -82,20 +123,21 @@ python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <RE-CON-id> --approver <u
 python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <RE-QA-id>  --approver <user> --notes "…"
 ```
 
-The script rejects approval unless the artifact is in `in_review`. If an artifact slipped back to `revising`, transition it to `in_review` first, then approve.
+The script rejects approval unless the artifact is in `in_review`. If an artifact slipped back to `revising`, the main agent transitions it to `in_review` first, then approves.
 
-After approval, point the user at the next Harness skill (typically `arch`) and exit. Do not keep iterating on approved artifacts in the same turn — if the user wants changes, they can re-enter RE and you will start a new revision cycle.
+After approval, the main agent points the user at the next Harness skill (typically `arch`) and exits. Do not keep iterating on approved artifacts in the same turn — if the user wants changes, they can re-enter RE and start a new revision cycle.
 
 ## Inputs
 
-- Three artifacts in phase `in_review` (from `spec`)
+- Three artifact paths in phase `in_review` (from `spec`)
 - Mode (light / heavy) — a light-mode review may omit the trade-off narrative and scenarios, but SMART and downstream-fitness checks are non-negotiable in either mode
+- The allocated report file path
 
 ## Outputs of this stage
 
-- All three artifacts in phase `approved` with `approval.state = approved`
-- A clean `validate` report
-- A short review report surfaced to the user listing: issues found, issues fixed, issues deferred with reason, and the next skill to invoke
+- A report file written to the allocated path, passing `artifact.py report validate`.
+- A short return message: `report_id`, `verdict`, `summary` (and nothing else).
+- No `artifact.py` state mutations — those are the main agent's responsibility after it reads the report and walks the user through the escalations.
 
 ## Common anti-patterns
 

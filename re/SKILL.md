@@ -75,7 +75,19 @@ Stages split between the **main agent** (which talks to the user) and isolated *
 | 3. spec | main | drafting + user feedback loop, plus the only stage that writes to disk |
 | 4. review | **subagent** | pure verification over a settled draft — a clean context catches more SMART / downstream-fitness gaps |
 
-**Sequencing rule (mandatory):** the four stages have a hard order — `elicit → analyze → spec → review` — and the two subagent stages must each run *after* their predecessor finishes. **Never spawn analyze and review in parallel**, never spawn analyze before elicit has produced a candidate set, and never spawn review before spec has produced a draft. Each subagent is a single Agent invocation (not multiple parallel calls), receives the prior stage's output as its only input, and returns a structured report that the main agent then walks the user through.
+**Sequencing rule (mandatory):** the four stages have a hard order — `elicit → analyze → spec → review` — and the two subagent stages must each run *after* their predecessor finishes. **Never spawn analyze and review in parallel**, never spawn analyze before elicit has produced a candidate set, and never spawn review before spec has produced a draft. Each subagent is a single Agent invocation (not multiple parallel calls) and receives the prior stage's output as its only input.
+
+**File-based handoff (light and heavy both):** every subagent writes its findings to a **report file** under `./artifacts/re/.reports/` and returns only `report_id + verdict + summary` in its message. The main agent then reads the file, validates it, walks the user through the findings, and applies any `proposed_meta_ops`. This keeps the main context O(1) in size regardless of report length and gives downstream iterations a durable audit trail. **Never** let a subagent return its report inline in the message body, and **never** let a subagent call `artifact.py set-phase / approve` — phase transitions are main-agent-only. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and protocol, including the per-stage allowed `classification` values.
+
+Before spawning any subagent, the main agent allocates the report path:
+
+```bash
+python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+    --kind <analyze|review|spec-review> --stage <analyze|review> \
+    --target <artifact-id> [--target ...]
+```
+
+and passes the printed `path` to the subagent as one of its inputs.
 
 ### Stage 1 — elicit
 
@@ -92,7 +104,7 @@ Output of this stage: candidate requirements, candidate constraints, candidate q
 
 ### Stage 2 — analyze
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the elicit output (candidate requirements, constraints, quality attributes, open questions) as its only input. Do not run it in parallel with anything else, and do not let it talk to the user — it returns a structured report (conflicts, gaps, infeasibility, decisions the user must make) that the main agent then walks the user through. The point is to give the analyzer a clean context window that is not polluted by the elicit dialogue.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind analyze --stage analyze --target <req-id> [...]`), then spawn a single `general-purpose` Agent with the elicit output (candidate requirements, constraints, quality attributes, open questions) **and the allocated report path** as its only inputs. Do not run it in parallel with anything else, and do not let it talk to the user — it writes its findings to the report file (conflicts, gaps, infeasibility, decisions the user must make) and returns only `report_id + verdict + summary`. The main agent then validates and reads the report and walks the user through it. The point is to give the analyzer a clean context window that is not polluted by the elicit dialogue, and to keep the main context O(1) in size regardless of report length.
 
 Load [references/workflow/analyze.md](references/workflow/analyze.md).
 
@@ -129,7 +141,7 @@ Adaptive-depth rules for this stage are in `references/adaptive-depth.md`. In li
 
 ### Stage 4 — review
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the three drafted artifacts (paths to the `.md` + `.meta.yaml` pairs) as its input. It runs the SMART check, the constraint-consistency check, and the downstream-fitness check in a clean context, then returns a verdict + a list of items to fix. The main agent applies fixes (or routes back to spec / analyze) and only then runs `artifact.py approve`. Do not spawn it in parallel with anything else, and do not start it before all three artifacts are in `in_review`.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind review --stage review --target <req-id> --target <con-id> --target <qa-id>`), then spawn a single `general-purpose` Agent with the three drafted artifacts (paths to the `.md` + `.meta.yaml` pairs) and the allocated report path as its input. It runs the SMART check, the constraint-consistency check, and the downstream-fitness check in a clean context, then writes a structured report file and returns only `report_id + verdict + summary`. The main agent reads the report, applies fixes (or routes back to spec / analyze) and only then runs `artifact.py approve`. Do not spawn it in parallel with anything else, and do not start it before all three artifacts are in `in_review`.
 
 Load [references/workflow/review.md](references/workflow/review.md).
 
@@ -168,8 +180,12 @@ Available subcommands:
 | `artifact.py show <id>` | Pretty-print the metadata. |
 | `artifact.py list` | List all artifacts in the project. |
 | `artifact.py validate [<id>]` | Validate schema and traceability for one or all artifacts. |
+| `artifact.py report path --kind <k> --stage <s> [--target <id> ...]` | Allocate a fresh subagent handoff report file with the required frontmatter stub. Returns `{report_id, path}`. |
+| `artifact.py report list [--kind <k>] [--stage <s>] [--target <id>]` | List reports, newest first. |
+| `artifact.py report show <report_id>` | Print a report (frontmatter + body). |
+| `artifact.py report validate <report_id-or-path>` | Validate a report's frontmatter against the handoff contract. |
 
-The artifact directory defaults to `./artifacts/re/` under the user's current working directory. Override with the `HARNESS_ARTIFACTS_DIR` environment variable when needed.
+The artifact directory defaults to `./artifacts/re/` under the user's current working directory. Override with the `HARNESS_ARTIFACTS_DIR` environment variable when needed. Subagent reports live under `<artifacts-dir>/.reports/`.
 
 ## A few non-negotiables
 
@@ -178,3 +194,4 @@ The artifact directory defaults to `./artifacts/re/` under the user's current wo
 - **Three sections, nothing more.** RE stops at high-level requirements. Do not sneak in architecture decisions or implementation details — those belong to `arch` and `impl`.
 - **Traceability.** Every requirement, constraint, and quality attribute gets a stable ID (`FR-001`, `NFR-001`, `CON-001`, `QA-001`). Record the user's utterance as `upstream_refs` so downstream skills can trace decisions back to the source.
 - **Scripts only for metadata.** If you ever feel tempted to `Edit` a `.meta.yaml`, stop — the right answer is almost always a subcommand of `artifact.py`.
+- **Subagent reports go to files, not messages.** Every subagent stage allocates a report path via `artifact.py report path` before spawning, the subagent writes the findings to that file, and returns only `report_id + verdict + summary`. This applies in both light and heavy modes — uniformity is the point. Subagents never call `artifact.py set-phase`, `set-progress`, `link`, or `approve` directly; they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them.

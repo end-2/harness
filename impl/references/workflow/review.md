@@ -4,13 +4,16 @@
 
 Verify the generated code and the four Impl sections along two axes — **Arch compliance** and **clean code** — and produce a structured issue list that the `refactor` stage can consume. This stage **runs in a subagent** so the review sees the code with fresh eyes.
 
+The subagent **does not return the report in its message body** and **does not edit any Impl section** or source file. It writes a report file and returns only `report_id + verdict + summary`. See [../contracts/subagent-report-contract.md](../contracts/subagent-report-contract.md) for the full handoff protocol.
+
 ## Inputs to the subagent
 
-Pass the following paths into the subagent as its only input:
+Pass the following into the subagent as its only input:
 
 - `./artifacts/arch/` — the four Arch artifacts (for compliance checks)
 - `./artifacts/impl/` — the four Impl section artifacts (for traceability checks)
 - the project source tree — the code to review
+- the **allocated report file path** (the main agent called `artifact.py report path --kind review --stage review --scope all` before spawning this subagent)
 
 ## Axis 1 — Arch compliance
 
@@ -50,12 +53,22 @@ Walk each Arch artifact and confirm it shows up in the code.
 - **Bug smells** — off-by-one, unclosed resources, ignored errors, nullable misuse, race conditions in shared state.
 - **OWASP-level baseline security** — SQL string concatenation, missing input validation at trust boundaries, hardcoded secrets, unsafe deserialisation. Deep threat modelling is the `security` skill's job; this is only the baseline sanity check.
 
-## Review report format
+## Report handoff (mandatory)
 
-Return the report as a single Markdown document with this structure:
+Fill the frontmatter and body of the allocated report file per the contract:
+
+- `kind: review`
+- `stage: review`
+- `target_refs`: the four Impl section IDs (`IMPL-MAP-*`, `IMPL-CODE-*`, `IMPL-IDR-*`, `IMPL-GUIDE-*`)
+- `verdict`: `pass` when there are no findings, `at_risk` when there are auto-fixable issues only, `fail` when there are contract violations the main agent must escalate to the user
+- `summary`: one line, e.g. `2 contract violations (auth→billing), 7 auto-fixable smells, 1 hardcoded secret.`
+- `items`: one entry per finding. Include `location` (`file:line` or `IMPL-*#anchor`), `arch_ref` where applicable, `classification ∈ {contract_violation, clean_code, security_baseline, traceability_gap, escalation}`, `severity ∈ {high, med, low, info}`, `message`, `suggested_fix`.
+- `proposed_meta_ops`: optional. Small `link` suggestions the main agent can apply are fine; **never** propose `set-phase` or `approve`.
+
+### Body structure
 
 ```markdown
-# Review Report — <date>
+# review report (impl/review)
 
 ## Summary
 - Contract violations: N
@@ -74,24 +87,32 @@ Return the report as a single Markdown document with this structure:
 
 ## Traceability
 - Every ARCH-COMP has at least one IMPL-MAP entry: yes / no
-- Every IMPL-IDR cites an arch or re ref: yes / no
+- Every IMPL-IDR cites an Arch or RE ref: yes / no
 ```
 
-Classification drives routing:
+Each body item must correspond to exactly one `items[]` entry in the frontmatter — keep the IDs in sync so the main agent can route findings programmatically.
 
-- **Contract violations** → escalate to the main agent, which shows them to the user with the relevant Arch ref. Do not auto-refactor across Arch boundaries.
-- **Auto-fixable issues** → hand to `refactor` as the issue list.
+Classification drives routing (applied by the main agent after reading the report):
+
+- **Contract violations** → the main agent shows them to the user with the relevant Arch ref. Do not auto-refactor across Arch boundaries.
+- **Auto-fixable issues** → the main agent hands the issue list to `refactor`.
 
 ## Traceability gate
 
-Before ending the review, run:
+Before writing the report body, run:
 
 ```
 python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate
 ```
 
-and ensure there are no schema or traceability errors. A validation failure is itself a review finding.
+and ensure there are no schema or traceability errors. A validation failure is itself a review finding (add an item with `classification: traceability_gap`).
 
 ## Subagent protocol
 
-The review subagent receives the artifact paths and returns the Markdown report. The main agent parses the report, routes the issue list, and — after the `refactor` loop settles — uses `artifact.py approve` to finalise the four Impl sections.
+Before returning, validate the report itself:
+
+```
+python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report validate <report_id>
+```
+
+Return to the main agent only the `report_id`, `verdict`, and `summary` — never the full body. The main agent reads the body via `artifact.py report show <report_id>`, routes the issue list, and — after the `refactor` loop settles — uses `artifact.py approve` to finalise the four Impl sections.

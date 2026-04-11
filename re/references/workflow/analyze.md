@@ -89,21 +89,66 @@ Walk the user through this list at the end of analyze. Nothing moves to `spec` u
 
 ## Interaction model
 
-Present findings → user confirms or chooses → update candidate set → repeat until the decision ledger is empty.
+`analyze` runs as a **subagent**, so it does not talk to the user directly. It produces a **report file** that the main agent reads and walks the user through. See [../contracts/subagent-report-contract.md](../contracts/subagent-report-contract.md) for the full handoff protocol — the rules below are the analyze-specific slice of that contract.
+
+Present findings (in the report) → main agent walks user → user confirms or chooses → main agent updates the candidate set for `spec` → loop if anything shifted.
 
 ## Inputs
 
-- Candidate set from `elicit`
+- Candidate set from `elicit` (passed in by the main agent)
 - Mode recommendation (light / heavy)
+- The allocated report file path (the main agent called `artifact.py report path --kind analyze --stage analyze` before spawning this subagent)
+
+## Report handoff (mandatory)
+
+All findings go into the report file — **not** into the return message. Fill the frontmatter and body per the contract:
+
+- `kind: analyze`
+- `stage: analyze`
+- `verdict`: `pass` (nothing to decide), `at_risk` (conflicts or gaps found), `fail` (infeasibility that blocks ship), or `n/a`
+- `summary`: one line, e.g. `3 conflicts, 2 gaps, 1 infeasibility — NFR-002 blocks ship on current budget.`
+- `items`: each conflict, gap, infeasibility, dependency hint, or trade-off as a single item. Use `classification ∈ {conflict, gap, infeasibility, dependency, tradeoff}`.
+- `proposed_meta_ops`: usually empty — `analyze` does not write artifacts yet, so it has nothing to propose. Leave the list empty unless you want to suggest a `link` the main agent should add later during `spec`.
+
+### Body structure
+
+```markdown
+# analyze report (re/analyze)
+
+## Summary
+One paragraph expanding on the `summary` field.
+
+## Conflicts
+Long-form explanation of each conflict with options, consequences, and the recommended decision — matching `items[]` entries with `classification: conflict`.
+
+## Gaps
+Long-form per `classification: gap` item.
+
+## Infeasibilities
+Long-form per `classification: infeasibility` item.
+
+## Decisions needed from the user
+Bullet list of the items the user must resolve before `spec` can start (mirrors the ledger below).
+```
+
+## Decision ledger
+
+Inside the body, end with a compact ledger matching the high-severity `items`:
+
+```
+DECISIONS_NEEDED
+  1. Conflict: NFR-offline vs NFR-latency. Options A/B above.
+  2. Gap: no retention policy for user uploads. Default 90 days?
+  3. Feasibility: "realtime collab" not shippable in 2 weeks. Cut, defer, or extend?
+```
+
+Nothing moves to `spec` until the main agent has walked the user through this ledger and every entry is either resolved or explicitly deferred with a recorded reason.
 
 ## Outputs of this stage
 
-- Reconciled candidate set (no known conflicts, no known gaps, feasible)
-- Quality-attribute priorities in a tentative ranking, with decisions recorded
-- A short "analysis notes" scratch section to be merged into the markdown bodies during `spec`
-- A list of items explicitly **deferred** with a recorded reason (these become Open Questions in the final artifact)
-
-Still no disk writes. That starts in `spec`.
+- A report file written to the allocated path, passing `artifact.py report validate`.
+- A short return message: `report_id`, `verdict`, `summary` (and nothing else).
+- No artifact `.md` or `.meta.yaml` changes. Disk writes against the artifact pairs start in `spec`.
 
 ## Common anti-patterns
 

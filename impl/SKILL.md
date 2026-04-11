@@ -90,6 +90,17 @@ Impl splits stages between the **main agent** (which talks to the user and write
 
 **Sequencing rule (mandatory):** the stages have a hard order — `generate → pattern → review → refactor → review → …` — because each consumes the previous one's output. `pattern` reads the code written by `generate`. `review` reads code + all four Impl sections. `refactor` reads the review report and the current code. Never spawn these subagents in parallel, and never start one before its predecessor has finished writing to disk.
 
+**File-based handoff (light and heavy both):** `review` and `refactor` each write their output to a **report file** under `./artifacts/impl/.reports/` and return only `report_id + verdict + summary` in their message. For `review` the body is a structured issue list (contract violations / clean-code smells / traceability gaps). For `refactor` the body contains the actual diffs (as `diff` fenced blocks) plus any IDR markdown to merge — the main agent applies the diffs via `Edit`/`Write` and pastes the IDRs into `IMPL-IDR-*.md`. Subagents **never** edit source files or Impl section `.md` files directly, and **never** call `artifact.py init / set-phase / link / approve` — they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and per-stage `classification` values.
+
+Before spawning any subagent, the main agent allocates the report path:
+
+```bash
+python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+    --kind <review|refactor> --stage <review|refactor> --scope all
+```
+
+and passes the printed `path` to the subagent as one of its inputs.
+
 Inside `generate` itself, the four sections must be created **in order**: `implementation-map → code-structure → implementation-decisions → implementation-guide`, because each later section references artifacts the earlier ones produced.
 
 ### Stage 1 — generate
@@ -137,7 +148,7 @@ No user escalation in this stage — Arch-mandated patterns must be applied, and
 
 ### Stage 3 — review
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the generated source tree, the four Impl section artifacts, and the four Arch artifacts as its input. Its job is to produce a structured review report: a list of issues with file:line locations, a severity, a classification (Arch-contract violation / clean-code smell / security smell), and a suggested fix. It returns the report for the main agent to act on. Do not run it in parallel with `refactor`, and do not start it before `pattern` has finished.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind review --stage review --scope all`), then spawn a single `general-purpose` Agent with the generated source tree, the four Impl section artifacts, the four Arch artifacts, **and the allocated report path** as its input. Its job is to write a structured review report file: a list of issues with file:line locations, a severity, a classification (Arch-contract violation / clean-code smell / security smell), and a suggested fix — all as `items[]` in the report frontmatter, with the long-form explanation in the body. The subagent returns only `report_id + verdict + summary`; the main agent reads the report via `artifact.py report show`, routes items, and acts. Do not run it in parallel with `refactor`, and do not start it before `pattern` has finished.
 
 Load [references/workflow/review.md](references/workflow/review.md).
 
@@ -152,7 +163,7 @@ Classification drives routing:
 
 ### Stage 4 — refactor
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the review report and the current source tree as its input. Its job is to apply fixes for the auto-fixable issues while respecting Arch component boundaries, and to return either the final code changes or a concrete patch. Do not run it in parallel with `review`, and do not start it before `review` has produced a report.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind refactor --stage refactor --scope all`), then spawn a single `general-purpose` Agent with the previous review's `report_id`, the current source tree, the four Impl section artifact paths (read-only), the four Arch artifact paths, **and the allocated refactor report path** as its input. Its job is to propose fixes for the auto-fixable issues while respecting Arch component boundaries. The subagent does **not** edit source files itself — it writes concrete diffs into the refactor report body (as fenced `diff` blocks) along with IDR markdown to merge and any `proposed_meta_ops` (e.g. updated `IMPL-MAP-*` progress), then returns only `report_id + verdict + summary`. The main agent validates the report, applies each diff via `Edit`/`Write`, pastes the IDRs into `IMPL-IDR-*.md`, runs the meta ops, and re-enters `review`. Do not run it in parallel with `review`, and do not start it before `review` has produced a report.
 
 Load [references/workflow/refactor.md](references/workflow/refactor.md).
 
@@ -191,8 +202,12 @@ Available subcommands:
 | `artifact.py show <id>` | Pretty-print the metadata. |
 | `artifact.py list` | List all impl artifacts in the project. |
 | `artifact.py validate [<id>]` | Validate schema and traceability for one or all artifacts. |
+| `artifact.py report path --kind <k> --stage <s> [--scope all]` | Allocate a fresh subagent handoff report file with the required frontmatter stub. Returns `{report_id, path}`. |
+| `artifact.py report list [--kind <k>] [--stage <s>] [--target <id>]` | List reports, newest first. |
+| `artifact.py report show <report_id>` | Print a report (frontmatter + body). |
+| `artifact.py report validate <report_id-or-path>` | Validate a report's frontmatter against the handoff contract. |
 
-The artifact directory defaults to `./artifacts/impl/` under the user's current working directory. Override with `HARNESS_ARTIFACTS_DIR`. Source code files are **not** tracked by this script — they live under the project tree and are edited directly.
+The artifact directory defaults to `./artifacts/impl/` under the user's current working directory. Override with `HARNESS_ARTIFACTS_DIR`. Source code files are **not** tracked by this script — they live under the project tree and are edited directly. Subagent reports live under `<artifacts-dir>/.reports/`.
 
 ## A few non-negotiables
 
@@ -202,3 +217,4 @@ The artifact directory defaults to `./artifacts/impl/` under the user's current 
 - **Four sections, nothing more.** Impl stops at code + the four sections. Test generation belongs to `qa`; deep threat modeling belongs to `security`; deployment config belongs to `deployment`.
 - **Traceability.** Every Implementation Map entry cites an Arch component. Every IDR cites at least one Arch or RE ref (via Arch). If a row has no anchor, it does not belong in the artifact yet.
 - **Scripts only for metadata.** If you ever feel tempted to `Edit` a `.meta.yaml`, stop — the right answer is almost always a subcommand of `artifact.py`.
+- **Subagent reports go to files, not messages.** `review` and `refactor` each allocate a report path via `artifact.py report path` before spawning, write the findings (and, for `refactor`, the actual diffs) to that file, and return only `report_id + verdict + summary`. This applies in both light and heavy modes — uniformity is the point. The refactor subagent **never** edits source files directly: it proposes diffs in the report body and the main agent applies them. Subagents never call `artifact.py set-phase / approve`; they emit `proposed_meta_ops` and the main agent applies them.

@@ -90,7 +90,19 @@ Stages split between the **main agent** (which talks to the user) and isolated *
 - `diagram` reads the decisions, components, and tech-stack sections, plus the ADRs recorded in step 2
 - `review` reads everything above and validates it against RE
 
-Therefore **never spawn these subagents in parallel**, and never start one before its predecessor has finished writing to disk. Each subagent is a single Agent invocation (not multiple parallel calls), receives the relevant artifact paths as its only input, and returns a structured report or a concrete edit plan that the main agent applies and then walks the user through.
+Therefore **never spawn these subagents in parallel**, and never start one before its predecessor has finished writing to disk. Each subagent is a single Agent invocation (not multiple parallel calls) and receives the relevant artifact paths as its only input.
+
+**File-based handoff (light and heavy both):** every subagent writes its output to a **report file** under `./artifacts/arch/.reports/` and returns only `report_id + verdict + summary` in its message. For `adr` and `diagram` the report body **is** the markdown the main agent will merge into `ARCH-DEC-*.md` or `ARCH-DIAG-*.md`; for `review` the body is a structured verification report. Subagents **never** edit the artifact `.md` files directly, **never** call `artifact.py init / set-phase / link / approve` — they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and protocol, including per-stage allowed `classification` values.
+
+Before spawning any subagent, the main agent allocates the report path:
+
+```bash
+python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+    --kind <adr-draft|diagram-draft|review> --stage <adr|diagram|review> \
+    --target <artifact-id> [--target ...]
+```
+
+and passes the printed `path` to the subagent as one of its inputs.
 
 Inside `design` itself, the three structured sections must also be created **in order** — `decisions → components → tech-stack` — because components reference decisions and tech-stack references both. Do not parallelise them.
 
@@ -124,7 +136,7 @@ Load [references/workflow/design.md](references/workflow/design.md).
 
 ### Stage 2 — adr
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the `decisions`, `components`, and `tech-stack` artifact paths plus the relevant RE refs as its input. Its job is to produce Nygard-form ADR blocks (Status / Context / Decision / Consequences) to be appended into the decisions markdown — it should return either the final ADR markdown or a concrete patch. Do not run it in parallel with `diagram` or `review`, and do not start it before `design` has all three sections in `in_review`. The main agent applies the subagent's output via Edit and then continues the user dialogue.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind adr-draft --stage adr --target <decisions-id>`), then spawn a single `general-purpose` Agent with the `decisions`, `components`, and `tech-stack` artifact paths, the relevant RE refs, and the allocated report path as its input. Its job is to produce Nygard-form ADR blocks (Status / Context / Decision / Consequences) in the body of the report file — the body content is what the main agent will paste into `ARCH-DEC-*.md` via `Edit`. The subagent returns only `report_id + verdict + summary`. Do not run it in parallel with `diagram` or `review`, and do not start it before `design` has all three sections in `in_review`.
 
 Load [references/workflow/adr.md](references/workflow/adr.md).
 
@@ -141,7 +153,7 @@ ADRs live inside the decisions artifact's markdown. They are not a separate sect
 
 ### Stage 3 — diagram
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the confirmed decisions / components / tech-stack artifacts as input. It produces the diagrams artifact markdown (C4 Context always, Container in heavy mode, plus sequence / data-flow as needed), every diagram inside a fenced `mermaid` block with a one-paragraph caption. It returns the markdown body for the main agent to write into the diagrams artifact. Run it **after** `adr` has finished and **not in parallel** with `review` — the review stage needs the diagrams to exist.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind diagram-draft --stage diagram`; if the diagrams artifact does not yet exist, pass `--scope diagrams-draft` and the main agent will `init` it after reading the report). Spawn a single `general-purpose` Agent with the confirmed decisions / components / tech-stack artifacts and the allocated report path as input. It produces the diagrams markdown (C4 Context always, Container in heavy mode, plus sequence / data-flow as needed) inside the report body — every diagram in a fenced `mermaid` block with a one-paragraph caption. The subagent returns only `report_id + verdict + summary`; the main agent then `init`s the diagrams artifact (if needed), pastes the body into `ARCH-DIAG-*.md`, and applies `proposed_meta_ops` (the `link` calls and `set-phase in_review`). Run it **after** `adr` has finished and **not in parallel** with `review` — the review stage needs the diagrams to exist.
 
 Load [references/workflow/diagram.md](references/workflow/diagram.md).
 
@@ -156,7 +168,7 @@ Every diagram lives in a fenced ` ```mermaid ` block in `<id>.md`. Add a one-par
 
 ### Stage 4 — review
 
-**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with all four arch artifacts (`decisions`, `components`, `tech-stack`, `diagrams`) **and** the three RE artifacts as input. It runs scenario validation, constraint-compliance, and the traceability check in a clean context, then returns a verdict plus a list of items to fix. Do not spawn it in parallel with anything else, and do not start it before `diagram` has written its artifact. The main agent applies fixes (or routes back to `design` / `adr` / `diagram`) and only then runs `artifact.py approve`.
+**Run this stage as a subagent.** First allocate a report path (`artifact.py report path --kind review --stage review --target <dec-id> --target <comp-id> --target <tech-id> --target <diag-id>`), then spawn a single `general-purpose` Agent with all four arch artifacts (`decisions`, `components`, `tech-stack`, `diagrams`), the three RE artifacts, and the allocated report path as input. It runs scenario validation, constraint-compliance, and the traceability check in a clean context, then writes a structured review report file and returns only `report_id + verdict + summary`. Do not spawn it in parallel with anything else, and do not start it before `diagram` has written its artifact. The main agent reads the report, applies fixes (or routes back to `design` / `adr` / `diagram`), walks the user through the risks, and only then runs `artifact.py approve`.
 
 Load [references/workflow/review.md](references/workflow/review.md).
 
@@ -198,8 +210,12 @@ Available subcommands:
 | `artifact.py show <id>` | Pretty-print the metadata. |
 | `artifact.py list` | List all arch artifacts in the project. |
 | `artifact.py validate [<id>]` | Validate schema and traceability for one or all artifacts. |
+| `artifact.py report path --kind <k> --stage <s> [--target <id> ...]` | Allocate a fresh subagent handoff report file with the required frontmatter stub. Returns `{report_id, path}`. |
+| `artifact.py report list [--kind <k>] [--stage <s>] [--target <id>]` | List reports, newest first. |
+| `artifact.py report show <report_id>` | Print a report (frontmatter + body). |
+| `artifact.py report validate <report_id-or-path>` | Validate a report's frontmatter against the handoff contract. |
 
-The artifact directory defaults to `./artifacts/arch/` under the user's current working directory. Override with `HARNESS_ARTIFACTS_DIR`.
+The artifact directory defaults to `./artifacts/arch/` under the user's current working directory. Override with `HARNESS_ARTIFACTS_DIR`. Subagent reports live under `<artifacts-dir>/.reports/`.
 
 ## A few non-negotiables
 
@@ -209,3 +225,4 @@ The artifact directory defaults to `./artifacts/arch/` under the user's current 
 - **Four sections, nothing more.** Arch stops at high-level structure. Internal class design and code organisation belong to `impl`.
 - **Traceability.** Every decision cites RE refs. Every component carries FR/NFR IDs. Every tech entry cites a decision or constraint. If a row has no anchor, it does not belong in the artifact yet.
 - **Scripts only for metadata.** If you ever feel tempted to `Edit` a `.meta.yaml`, stop — the right answer is almost always a subcommand of `artifact.py`.
+- **Subagent reports go to files, not messages.** Every subagent stage allocates a report path via `artifact.py report path` before spawning, the subagent writes the findings (for `adr` and `diagram`: the ADR / Mermaid blocks themselves) to that file, and returns only `report_id + verdict + summary`. This applies in both light and heavy modes — uniformity is the point. Subagents never edit `ARCH-DEC-*.md` / `ARCH-DIAG-*.md` directly and never call `artifact.py set-phase / link / approve`; they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them.

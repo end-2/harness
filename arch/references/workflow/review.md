@@ -2,9 +2,11 @@
 
 ## Role
 
-Validate the `design` output against the RE artifacts as concrete scenarios, verify constraint compliance, check traceability, and get explicit user approval on the full set of arch artifacts.
+Validate the `design` output against the RE artifacts as concrete scenarios, verify constraint compliance, check traceability, and produce a report the main agent can walk the user through before calling `artifact.py approve`.
 
 `review` is a compressed ATAM. Traditional ATAM takes days and a room full of stakeholders. Here you have RE as the stakeholder proxy and the user as the tie-breaker, and the quality attributes are already ranked — you are doing scenario walkthroughs, not workshops.
+
+`review` runs as a **subagent**. It does not talk to the user directly and **never** calls `artifact.py approve`. It writes a `review` report file; the main agent reads it, walks the user through scenarios and risks, and (when the user says go) applies the approvals. See [../contracts/subagent-report-contract.md](../contracts/subagent-report-contract.md) for the full handoff protocol.
 
 ## Three checks
 
@@ -46,16 +48,42 @@ Then verify by hand:
 
 Holes here are almost always a sign that either RE is incomplete (send the user back) or `design` skipped a requirement (loop back to `design`).
 
-## Presenting the review to the user
+## Report handoff (mandatory)
 
-Structure the review report as four sections:
+- `kind: review`
+- `stage: review`
+- `target_refs`: all four arch artifact IDs (`ARCH-DEC-*`, `ARCH-COMP-*`, `ARCH-TECH-*`, `ARCH-DIAG-*`)
+- `verdict`: `pass` if every scenario passes and every hard constraint is satisfied, `at_risk` if there are scenarios at risk the user must accept, `fail` if something must loop back to `design` / `adr` / `diagram`
+- `summary`: one line, e.g. `3/3 hard constraints satisfied; 2 scenarios pass, 1 at risk (NFR-003 p95); 1 untraced FR.`
+- `items`: one entry per scenario, hard-constraint check, traceability hole, or risk requiring user accept. Use `classification ∈ {scenario_pass, scenario_failure, hard_constraint_unsatisfied, traceability_gap, escalation}`.
+- `proposed_meta_ops`: typically empty. **Never** propose `set-phase` or `approve` — the main agent gates those on user approval.
 
-1. **Scenarios** — one line per scenario: "Scenario / verdict / reason".
-2. **Constraints** — one line per hard constraint: "constraint / satisfied by".
-3. **Traceability** — "X FRs mapped, Y NFRs mapped, Z decisions cited, W diagrams captioned". Any gaps listed.
-4. **Risks and open items** — anything the user must explicitly accept before approval. This is the important section.
+### Body structure
 
-Do not approve silently. Wait for the user to say "go ahead" (or equivalent) before transitioning. When they approve:
+```markdown
+# review report (arch/review)
+
+## Summary
+One paragraph expanding on the `summary` field.
+
+## Scenarios
+| scenario | verdict | reason |
+| --- | --- | --- |
+
+## Constraints
+| constraint | satisfied by |
+| --- | --- |
+
+## Traceability
+X FRs mapped, Y NFRs mapped, Z decisions cited, W diagrams captioned. Any gaps listed.
+
+## Risks and open items
+Anything the user must explicitly accept before approval. This is the important section — mirrors `items[]` with `classification: escalation`.
+```
+
+## Approval (main agent only)
+
+The review subagent **never** calls `artifact.py approve`. When its report comes back with `verdict: pass` (or `at_risk` after the user has explicitly accepted the risks), the main agent runs:
 
 ```bash
 python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-DEC-001  --approver <user> --notes "..."
@@ -64,7 +92,7 @@ python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-TECH-001 --approver 
 python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-DIAG-001 --approver <user> --notes "..."
 ```
 
-Each approval requires the artifact to already be in `in_review`. If any is still in `draft`, move it to `in_review` first — or, more likely, loop back and finish it.
+Each approval requires the artifact to already be in `in_review`. If any is still in `draft`, the main agent moves it to `in_review` first — or, more likely, loops back and finishes it.
 
 ## When review fails
 
@@ -77,7 +105,9 @@ Never paper over a review failure with wording. The whole point of this stage is
 
 ## Outputs of this stage
 
-All four artifacts in phase `approved`, linked, and with a clean `validate` run. Handoff message to the user pointing at the next skills:
+- A report file written to the allocated path, passing `artifact.py report validate`.
+- A short return message from the subagent: `report_id`, `verdict`, `summary`.
+- After the main agent applies the approvals: all four artifacts in phase `approved`, linked, and with a clean `validate` run. Handoff message to the user pointing at the next skills:
 
 - `impl` — now has components, tech stack, and decisions to generate from.
 - `qa` — has NFR metrics mapped to components to derive test strategy.
