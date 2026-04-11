@@ -1,0 +1,69 @@
+# Quality Report
+
+<!--
+This document records the actual test-execution results, the requirement
+coverage roll-up from the RTM, the NFR measured-vs-target table, the
+quality-gate verdict, residual risks, and recommendations.
+
+The verdict is computed by `artifact.py gate-evaluate` from the
+quality_gate.criteria + quality_gate.actuals blocks in the metadata.
+Do not write a verdict here by hand — re-run gate-evaluate.
+
+ID convention: QA-REPORT-NNN
+-->
+
+## 1. Executive Summary
+
+- Verdict: <!-- pass | fail | escalated --> (driven by gate-evaluate)
+- Mode: <!-- light | heavy -->
+- Test runs: <!-- N passed / M failed of T total -->
+
+## 2. Code Coverage
+
+| Module | Lines | Branches | Notes |
+|--------|-------|----------|-------|
+| <!-- src/auth/ --> | <!-- 92% --> | <!-- 87% --> | <!-- IMPL-MAP-001 --> |
+| **total** | <!-- 84% --> | <!-- 78% --> | |
+
+## 3. Requirements Coverage
+
+Source: `python ${SKILL_DIR}/scripts/artifact.py rtm-gap-report`.
+
+| Priority | Total | Covered | Partial | Uncovered |
+|----------|-------|---------|---------|-----------|
+| must | <!-- N --> | <!-- N --> | <!-- 0 --> | <!-- 0 --> |
+| should | <!-- N --> | <!-- N --> | <!-- N --> | <!-- N --> |
+| could | <!-- N --> | <!-- N --> | <!-- N --> | <!-- N --> |
+
+## 4. NFR Results
+
+One row per `RE-QA-*.metric`. The `pass` column drives `gate-evaluate`.
+
+| Metric ref | Target | Measured | Pass | Notes |
+|------------|--------|----------|------|-------|
+| <!-- RE-QA-001 --> | <!-- p95 < 200 ms --> | <!-- 148 ms --> | <!-- yes --> | <!-- k6 run id 42 --> |
+
+## 5. Quality Gate
+
+| Criterion | Target | Actual | Result |
+|-----------|--------|--------|--------|
+| code_coverage_min | <!-- 0.80 --> | <!-- 0.84 --> | <!-- pass --> |
+| requirements_coverage_must_min | <!-- 1.00 --> | <!-- 1.00 --> | <!-- pass --> |
+| max_failed_tests | <!-- 0 --> | <!-- 0 --> | <!-- pass --> |
+| nfr_results | all green | <!-- all green --> | <!-- pass --> |
+
+**Verdict (from gate-evaluate)**: <!-- pass | fail | escalated -->
+
+## 6. Residual Risks
+
+Every Should / Could / Won't row from the RTM that was accepted as a gap.
+
+| RE id | Priority | Status | Why accepted |
+|-------|----------|--------|--------------|
+| <!-- FR-014 --> | <!-- should --> | <!-- partial --> | <!-- IdP stub not in CI; deferred --> |
+
+## 7. Recommendations
+
+Free-form, prioritised. Aim it at `deployment` / `operation` / `management`.
+
+1. <!-- ... -->

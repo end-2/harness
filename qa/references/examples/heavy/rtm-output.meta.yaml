@@ -1,0 +1,155 @@
+artifact_id: QA-RTM-001
+section: rtm
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: bob
+  approved_at: 2026-04-11T13:45:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T13:40:00Z
+      notes: null
+    - state: approved
+      approver: bob
+      at: 2026-04-11T13:45:00Z
+      notes: null
+upstream_refs:
+  - RE-SPEC-001
+  - RE-QA-001
+  - RE-QA-002
+  - RE-QA-003
+  - QA-STRATEGY-001
+  - QA-SUITE-001
+  - QA-SUITE-002
+  - QA-SUITE-003
+  - QA-SUITE-004
+  - QA-SUITE-005
+downstream_refs:
+  - QA-REPORT-001
+document_path: QA-RTM-001.md
+created_at: 2026-04-11T13:30:00Z
+updated_at: 2026-04-11T13:45:00Z
+
+# Managed exclusively via `artifact.py rtm-upsert`. Do not edit by hand.
+rtm_rows:
+  - re_id: FR-001
+    re_title: Authenticate caller
+    re_priority: must
+    arch_refs: [ARCH-COMP-001]
+    impl_refs: [IMPL-MAP-001]
+    test_refs:
+      - QA-SUITE-001:TS-001-C01
+      - QA-SUITE-001:TS-001-C02
+      - QA-SUITE-001:TS-001-C03
+      - QA-SUITE-001:TS-001-C04
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-002
+    re_title: Initiate payment
+    re_priority: must
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-002:TS-002-C01
+      - QA-SUITE-002:TS-003-C01
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-003
+    re_title: Confirm payment
+    re_priority: must
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-002:TS-002-C04
+      - QA-SUITE-002:TS-002-C05
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-004
+    re_title: Refund payment
+    re_priority: must
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-002:TS-002-C03
+      - QA-SUITE-002:TS-002-C06
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-005
+    re_title: Idempotent retries
+    re_priority: must
+    arch_refs: [ARCH-COMP-002, ARCH-COMP-003]
+    impl_refs: [IMPL-MAP-002, IMPL-MAP-003]
+    test_refs:
+      - QA-SUITE-002:TS-002-C02
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-006
+    re_title: Webhook delivery
+    re_priority: must
+    arch_refs: [ARCH-COMP-004]
+    impl_refs: [IMPL-MAP-004]
+    test_refs:
+      - QA-SUITE-004:TS-004-C01
+      - QA-SUITE-004:TS-004-C02
+      - QA-SUITE-004:TS-004-C03
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-007
+    re_title: Audit log export
+    re_priority: should
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-002:TS-002-C07
+    coverage_status: covered
+    gap_description: null
+  - re_id: FR-008
+    re_title: 3DS step-up
+    re_priority: could
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-002:TS-002-C08
+    coverage_status: partial
+    gap_description: "challenge-required path requires the IdP step-up sandbox which is not in CI"
+  - re_id: FR-009
+    re_title: BNPL
+    re_priority: wont
+    arch_refs: []
+    impl_refs: []
+    test_refs: []
+    coverage_status: uncovered
+    gap_description: "explicitly deferred per RE"
+  - re_id: RE-QA-001
+    re_title: latency p95
+    re_priority: must
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-005:TS-005-N01
+    coverage_status: covered
+    gap_description: null
+  - re_id: RE-QA-002
+    re_title: success rate
+    re_priority: must
+    arch_refs: [ARCH-COMP-002]
+    impl_refs: [IMPL-MAP-002]
+    test_refs:
+      - QA-SUITE-005:TS-005-N02
+    coverage_status: covered
+    gap_description: null
+  - re_id: RE-QA-003
+    re_title: webhook delivery time
+    re_priority: should
+    arch_refs: [ARCH-COMP-004]
+    impl_refs: [IMPL-MAP-004]
+    test_refs:
+      - QA-SUITE-005:TS-005-N03
+    coverage_status: partial
+    gap_description: "synthetic relay covers throughput, real subscriber latency not measured"

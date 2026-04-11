@@ -1,0 +1,47 @@
+# Metadata skeleton for the Quality Report section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+# `quality_gate.criteria` is set during the strategy stage; `quality_gate.actuals`
+# is filled in during the report stage. The verdict and approval state are
+# both driven by `artifact.py gate-evaluate` — never edit them by hand.
+artifact_id: QA-REPORT-000
+section: quality-report
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: QA-REPORT-000.md
+
+quality_report:
+  code_coverage:
+    by_module: []     # [{module, lines, branches, notes}]
+    total:
+      lines: null
+      branches: null
+  requirements_coverage:
+    by_priority: []   # [{priority, total, covered, partial, uncovered}]
+  nfr_results: []     # [{metric_id, target, actual, pass, notes}]
+  residual_risks: []  # [{re_id, priority, status, reason}]
+  recommendations: []
+
+quality_gate:
+  criteria:
+    code_coverage_min: null
+    requirements_coverage_must_min: null
+    max_failed_tests: 0
+  actuals:
+    code_coverage: null
+    requirements_coverage_must: null
+    failed_tests: null
+    nfr_results: []   # [{metric_id, target, actual, pass}]
+  verdict: null       # set by gate-evaluate
+  reasons: []         # set by gate-evaluate
+  evaluated_at: null  # set by gate-evaluate

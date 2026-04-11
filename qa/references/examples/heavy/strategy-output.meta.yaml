@@ -1,0 +1,174 @@
+artifact_id: QA-STRATEGY-001
+section: test-strategy
+phase: approved
+progress:
+  section_completed: 7
+  section_total: 7
+  percent: 100
+approval:
+  state: approved
+  approver: bob
+  approved_at: 2026-04-11T13:00:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T12:30:00Z
+      notes: null
+    - state: approved
+      approver: bob
+      at: 2026-04-11T13:00:00Z
+      notes: null
+upstream_refs:
+  - RE-SPEC-001
+  - RE-CON-002
+  - RE-CON-003
+  - RE-CON-004
+  - RE-QA-001
+  - RE-QA-002
+  - RE-QA-003
+  - ARCH-COMP-001
+  - ARCH-COMP-002
+  - ARCH-COMP-003
+  - ARCH-COMP-004
+  - ARCH-DEC-001
+  - ARCH-DIAG-001
+  - IMPL-MAP-001
+  - IMPL-MAP-002
+  - IMPL-MAP-003
+  - IMPL-MAP-004
+  - IMPL-CODE-001
+  - IMPL-IDR-001
+  - IMPL-IDR-002
+  - IMPL-IDR-003
+  - IMPL-GUIDE-001
+downstream_refs:
+  - QA-SUITE-001
+  - QA-SUITE-002
+  - QA-SUITE-003
+  - QA-SUITE-004
+  - QA-RTM-001
+  - QA-REPORT-001
+document_path: QA-STRATEGY-001.md
+created_at: 2026-04-11T12:00:00Z
+updated_at: 2026-04-11T13:00:00Z
+
+test_strategy:
+  mode: heavy
+  scope:
+    in:
+      - re_id: FR-001
+        title: Authenticate caller
+        priority: must
+        reason: gates every payment call
+      - re_id: FR-002
+        title: Initiate payment
+        priority: must
+        reason: core domain
+      - re_id: FR-003
+        title: Confirm payment
+        priority: must
+        reason: core domain
+      - re_id: FR-004
+        title: Refund payment
+        priority: must
+        reason: core domain
+      - re_id: FR-005
+        title: Idempotent retries
+        priority: must
+        reason: provider mandates idempotency
+      - re_id: FR-006
+        title: Webhook delivery
+        priority: must
+        reason: downstream integrations rely on it
+      - re_id: FR-007
+        title: Audit log export
+        priority: should
+        reason: compliance
+      - re_id: FR-008
+        title: 3DS step-up
+        priority: could
+        reason: ship if time allows
+      - re_id: RE-QA-001
+        title: latency p95
+        priority: must
+        reason: SLO
+      - re_id: RE-QA-002
+        title: success rate
+        priority: must
+        reason: SLO
+      - re_id: RE-QA-003
+        title: webhook delivery time
+        priority: should
+        reason: best-effort SLO
+    out:
+      - re_id: FR-009
+        priority: wont
+        reason: explicitly deferred per RE
+  pyramid:
+    - layer: unit
+      ratio: 0.55
+      rationale: 4 modules × ~6 unit suites each
+    - layer: integration
+      ratio: 0.20
+      rationale: 4 inter-module contracts
+    - layer: contract
+      ratio: 0.10
+      rationale: OpenAPI conformance + provider HTTP fixtures
+    - layer: e2e
+      ratio: 0.10
+      rationale: 3 critical journeys
+    - layer: nfr
+      ratio: 0.05
+      rationale: k6 load profile per RE-QA metric
+  nfr_test_plan:
+    - metric_ref: RE-QA-001
+      attribute: latency
+      target: "p95 < 200 ms"
+      scenario: "100 RPS for 5 min on /payments"
+      tooling: k6
+    - metric_ref: RE-QA-002
+      attribute: reliability
+      target: "success rate > 99.9%"
+      scenario: "1h soak at 50 RPS, kill provider stub once"
+      tooling: "k6 + chaos toolkit"
+    - metric_ref: RE-QA-003
+      attribute: webhook delivery
+      target: "95% within 30 s"
+      scenario: "200 events/min for 10 min"
+      tooling: "k6 + relay stub"
+  environment_matrix:
+    - environment: local
+      purpose: unit + integration
+      notes: "docker compose: postgres 16, redis 7"
+      constraint_refs: [RE-CON-002]
+    - environment: ci
+      purpose: full suite (unit/integration/contract)
+      notes: GitHub Actions
+      constraint_refs: [RE-CON-002]
+    - environment: staging
+      purpose: e2e + nfr
+      notes: k8s namespace payments-staging, real provider sandbox
+      constraint_refs: [RE-CON-003]
+    - environment: prod-like
+      purpose: smoke + soak
+      notes: mirrors prod topology
+      constraint_refs: [RE-CON-003, RE-CON-004]
+  test_double_strategy:
+    - seam: "orchestrator → payment provider HTTP"
+      strategy: "contract test + recorded fixtures, real call only in staging"
+      notes: "Adapter pattern (IMPL-IDR-002); provider charges per call"
+    - seam: "orchestrator → idempotency store"
+      strategy: "in-memory fake for unit, real redis for integration"
+      notes: "Repository (IMPL-IDR-001)"
+    - seam: "relay → webhook subscribers"
+      strategy: "recording subscriber in tests"
+      notes: "Pub-Sub (IMPL-IDR-003)"
+    - seam: "gateway → identity provider"
+      strategy: "fake at HTTP layer"
+      notes: "tokens issued by test signer"
+  quality_gate_criteria:
+    code_coverage_min: 0.85
+    requirements_coverage_must_min: 1.00
+    max_failed_tests: 0
+    nfr_metric_refs: [RE-QA-001, RE-QA-002, RE-QA-003]

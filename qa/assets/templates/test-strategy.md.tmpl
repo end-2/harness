@@ -1,0 +1,82 @@
+# Test Strategy
+
+<!--
+This document captures the QA scope, pyramid ratios, NFR test plan,
+environment matrix, test-double strategy, and quality-gate criteria for
+the project. It is derived mechanically from the upstream RE, Arch, and
+Impl artifacts; every choice below should cite the upstream id that
+justifies it.
+
+ID convention: QA-STRATEGY-NNN
+-->
+
+## 1. Mode and Scope
+
+**Adaptive mode**: <!-- light | heavy -->
+
+**Mode signal**: <!-- e.g. Impl ran in heavy mode (multi-module IMPL-CODE-001) -->
+
+**In scope**
+
+| RE id | Title | Priority | Reason |
+|-------|-------|----------|--------|
+| <!-- FR-001 --> | <!-- ... --> | <!-- must --> | <!-- core domain --> |
+
+**Out of scope (with reason)**
+
+| RE id | Priority | Reason |
+|-------|----------|--------|
+| <!-- FR-099 --> | <!-- wont --> | <!-- explicitly deferred per RE --> |
+
+## 2. Test Pyramid
+
+| Layer | Ratio | Rationale |
+|-------|-------|-----------|
+| unit | <!-- 70% --> | <!-- per ARCH-COMP boundary count and IMPL-MAP module fan-out --> |
+| integration | <!-- 20% --> | <!-- ARCH-COMP-001 ↔ ARCH-COMP-002 contract surface --> |
+| e2e | <!-- 10% --> | <!-- ARCH-DIAG sequence flow count --> |
+
+## 3. NFR Test Plan
+
+One row per `RE-QA-*.metric`. Lift the target verbatim.
+
+| Metric ref | Attribute | Target | Scenario | Tooling |
+|------------|-----------|--------|----------|---------|
+| <!-- RE-QA-001 --> | <!-- latency --> | <!-- p95 < 200 ms --> | <!-- 100 RPS for 5 min on /search --> | <!-- k6 --> |
+
+## 4. Environment Matrix
+
+Driven by `RE-CON-*` (technical / regulatory constraints) and `ARCH-TECH-*`.
+
+| Environment | Purpose | Notes / constraint refs |
+|-------------|---------|-------------------------|
+| <!-- local --> | <!-- unit + integration --> | <!-- RE-CON-002: must run on macOS dev laptops --> |
+| <!-- ci --> | <!-- full suite --> | <!-- ARCH-TECH-003: postgres 16 --> |
+| <!-- staging --> | <!-- e2e + nfr --> | <!-- RE-CON-005: prod-like topology --> |
+
+## 5. Test Double Strategy
+
+For each `IMPL-CODE-*.external_dependencies` row, decide a default seam.
+
+| Seam | Strategy | Notes |
+|------|----------|-------|
+| <!-- src/auth → identity provider --> | <!-- fake at HTTP layer --> | <!-- per IDR-002 --> |
+| <!-- src/billing → stripe sdk --> | <!-- contract test + recorded fixtures --> | <!-- ARCH-DEC-004 --> |
+
+## 6. Quality Gate Criteria
+
+These values populate `quality_gate.criteria` in the Quality Report metadata
+and are evaluated by `gate-evaluate`.
+
+| Criterion | Target | Source |
+|-----------|--------|--------|
+| code_coverage_min | <!-- 0.80 --> | default + adjustment for adaptive mode |
+| requirements_coverage_must_min | <!-- 1.00 --> | non-negotiable for Must |
+| max_failed_tests | <!-- 0 --> | default |
+| nfr_results | per `RE-QA-*.metric` rows | NFR plan section |
+
+## 7. Upstream Refs
+
+- RE: <!-- RE-SPEC-001, RE-CON-002, RE-QA-001 -->
+- Arch: <!-- ARCH-COMP-001, ARCH-DEC-002, ARCH-TECH-003, ARCH-DIAG-001 -->
+- Impl: <!-- IMPL-MAP-001, IMPL-CODE-001, IMPL-IDR-001, IMPL-GUIDE-001 -->

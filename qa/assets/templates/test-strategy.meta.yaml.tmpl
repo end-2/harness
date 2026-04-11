@@ -1,0 +1,34 @@
+# Metadata skeleton for the Test Strategy section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: QA-STRATEGY-000
+section: test-strategy
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: QA-STRATEGY-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+test_strategy:
+  mode: null            # light | heavy
+  scope:
+    in: []              # [{re_id, title, priority, reason}]
+    out: []             # [{re_id, priority, reason}]
+  pyramid: []           # [{layer, ratio, rationale}]
+  nfr_test_plan: []     # [{metric_ref, attribute, target, scenario, tooling}]
+  environment_matrix: []  # [{environment, purpose, notes, constraint_refs}]
+  test_double_strategy: []  # [{seam, strategy, notes}]
+  quality_gate_criteria:
+    code_coverage_min: null
+    requirements_coverage_must_min: null
+    max_failed_tests: 0
+    nfr_metric_refs: []

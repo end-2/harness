@@ -1,0 +1,40 @@
+# Metadata skeleton for the Test Suite section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: QA-SUITE-000
+section: test-suite
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: QA-SUITE-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+test_suite: []
+# - id: TS-001
+#   type: unit                  # unit | integration | e2e | contract | nfr
+#   title: Auth service unit tests
+#   target_module: src/auth/
+#   framework: pytest
+#   test_files:
+#     - tests/auth/test_service.py
+#   re_refs: [FR-002, NFR-003]
+#   arch_refs: [ARCH-COMP-001, ARCH-DEC-002]
+#   impl_refs: [IMPL-MAP-001, IMPL-IDR-001]
+#   test_cases:
+#     - case_id: TS-001-C01
+#       description: login with valid credentials returns a session
+#       technique: example_based
+#       acceptance_criteria_ref: FR-002.AC-1
+#       given: a user exists with hashed password
+#       when: POST /login with correct credentials
+#       then: 200 with a non-empty session token
+#       test_node: tests/auth/test_service.py::test_login_with_valid_credentials

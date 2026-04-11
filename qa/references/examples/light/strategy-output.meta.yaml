@@ -1,0 +1,98 @@
+artifact_id: QA-STRATEGY-001
+section: test-strategy
+phase: approved
+progress:
+  section_completed: 7
+  section_total: 7
+  percent: 100
+approval:
+  state: approved
+  approver: alice
+  approved_at: 2026-04-11T12:00:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: alice
+      at: 2026-04-11T11:30:00Z
+      notes: null
+    - state: approved
+      approver: alice
+      at: 2026-04-11T12:00:00Z
+      notes: null
+upstream_refs:
+  - RE-SPEC-001
+  - RE-CON-001
+  - RE-QA-001
+  - ARCH-COMP-001
+  - ARCH-DEC-001
+  - IMPL-MAP-001
+  - IMPL-CODE-001
+  - IMPL-IDR-001
+  - IMPL-GUIDE-001
+downstream_refs:
+  - QA-SUITE-001
+  - QA-RTM-001
+  - QA-REPORT-001
+document_path: QA-STRATEGY-001.md
+created_at: 2026-04-11T11:00:00Z
+updated_at: 2026-04-11T12:00:00Z
+
+test_strategy:
+  mode: light
+  scope:
+    in:
+      - re_id: FR-001
+        title: Create a todo
+        priority: must
+        reason: core CRUD
+      - re_id: FR-002
+        title: List todos
+        priority: must
+        reason: core CRUD
+      - re_id: FR-003
+        title: Mark todo done
+        priority: must
+        reason: core CRUD
+      - re_id: FR-004
+        title: Delete a todo
+        priority: should
+        reason: covered by integration test
+      - re_id: RE-QA-001
+        title: latency p95
+        priority: must
+        reason: NFR
+    out:
+      - re_id: FR-005
+        priority: wont
+        reason: explicitly deferred per RE
+  pyramid:
+    - layer: unit
+      ratio: 0.70
+      rationale: storage repository + handler logic
+    - layer: integration
+      ratio: 0.30
+      rationale: FastAPI test client per CRUD path
+  nfr_test_plan:
+    - metric_ref: RE-QA-001
+      attribute: latency
+      target: "p95 < 100 ms"
+      scenario: "50 RPS for 60 s on /todos"
+      tooling: k6
+  environment_matrix:
+    - environment: local
+      purpose: developer suite
+      notes: python 3.12, sqlite file
+      constraint_refs: [RE-CON-001]
+    - environment: ci
+      purpose: full suite + NFR
+      notes: GitHub Actions, sqlite in tmpfs
+      constraint_refs: [RE-CON-001]
+  test_double_strategy:
+    - seam: "src/storage → sqlite"
+      strategy: "real sqlite, fresh file per test"
+      notes: "repository pattern (IMPL-IDR-001) makes substitution trivial"
+  quality_gate_criteria:
+    code_coverage_min: 0.80
+    requirements_coverage_must_min: 1.00
+    max_failed_tests: 0
+    nfr_metric_refs: [RE-QA-001]

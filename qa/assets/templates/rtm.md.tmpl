@@ -1,0 +1,46 @@
+# Requirements Traceability Matrix
+
+<!--
+The RTM is project-wide: there is exactly one QA-RTM-* artifact per
+project. The structured rows live in the meta.yaml file under
+`rtm_rows` and are managed exclusively by `artifact.py rtm-upsert`.
+This document is the human-readable rendering plus a gap commentary.
+
+ID convention: QA-RTM-NNN (typically QA-RTM-001 — the only one)
+-->
+
+## 1. Coverage Summary
+
+Refresh from `python ${SKILL_DIR}/scripts/artifact.py rtm-gap-report`.
+
+| Status | Count | Percent |
+|--------|-------|---------|
+| covered | <!-- N --> | <!-- % --> |
+| partial | <!-- N --> | <!-- % --> |
+| uncovered | <!-- N --> | <!-- % --> |
+
+## 2. Matrix
+
+One row per RE requirement. Re-render from `rtm_rows` in the metadata.
+
+| RE id | Title | Priority | Arch refs | Impl refs | Test refs | Status | Gap |
+|-------|-------|----------|-----------|-----------|-----------|--------|-----|
+| <!-- FR-001 --> | <!-- ... --> | <!-- must --> | <!-- ARCH-COMP-001 --> | <!-- IMPL-MAP-001 --> | <!-- QA-SUITE-001:TS-001-C01 --> | <!-- covered --> | <!-- — --> |
+
+## 3. Gap Commentary
+
+For every `partial` or `uncovered` row, write one short paragraph that:
+
+1. names the RE id and its priority,
+2. explains *why* the gap exists (missing test, missing infrastructure, deferred decision),
+3. records the disposition (accepted as residual risk / scheduled for next iteration / escalated to user).
+
+<!--
+Example:
+
+### FR-014 (should) — partial
+
+Only the happy-path scenario is exercised. The 4xx error branches require
+the upstream identity-provider stub which is currently not wired into CI.
+Disposition: accepted as residual risk; tracked for the next iteration.
+-->

@@ -1,0 +1,32 @@
+# Metadata skeleton for the Requirements Traceability Matrix.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+# RTM rows are first-class metadata and may only be edited via
+# `artifact.py rtm-upsert`. There is exactly one RTM artifact per project.
+artifact_id: QA-RTM-000
+section: rtm
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: QA-RTM-000.md
+
+rtm_rows: []
+# - re_id: FR-001
+#   re_title: User can log in with email and password
+#   re_priority: must            # must | should | could | wont
+#   arch_refs: [ARCH-COMP-001]
+#   impl_refs: [IMPL-MAP-001]
+#   test_refs:
+#     - QA-SUITE-001:TS-001-C01
+#     - QA-SUITE-001:TS-001-C02
+#   coverage_status: covered     # covered | partial | uncovered
+#   gap_description: null

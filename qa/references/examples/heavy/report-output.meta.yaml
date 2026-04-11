@@ -1,0 +1,142 @@
+artifact_id: QA-REPORT-001
+section: quality-report
+phase: approved
+progress:
+  section_completed: 7
+  section_total: 7
+  percent: 100
+approval:
+  state: approved
+  approver: auto:gate-evaluator
+  approved_at: 2026-04-11T14:00:00Z
+  notes: "verdict pass — set by gate-evaluate"
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T13:50:00Z
+      notes: null
+    - state: approved
+      approver: auto:gate-evaluator
+      at: 2026-04-11T14:00:00Z
+      notes: "verdict pass — set by gate-evaluate"
+upstream_refs:
+  - QA-STRATEGY-001
+  - QA-SUITE-001
+  - QA-SUITE-002
+  - QA-SUITE-003
+  - QA-SUITE-004
+  - QA-SUITE-005
+  - QA-RTM-001
+downstream_refs:
+  - DEPLOY-PLAN-001
+  - OP-SLO-001
+  - MGMT-DEBT-001
+  - SEC-BASELINE-001
+document_path: QA-REPORT-001.md
+created_at: 2026-04-11T13:45:00Z
+updated_at: 2026-04-11T14:00:00Z
+
+quality_report:
+  code_coverage:
+    by_module:
+      - module: src/gateway/
+        lines: 0.91
+        branches: 0.86
+        notes: IMPL-MAP-001
+      - module: src/orchestrator/
+        lines: 0.93
+        branches: 0.88
+        notes: IMPL-MAP-002
+      - module: src/idempotency_store/
+        lines: 0.95
+        branches: 0.92
+        notes: IMPL-MAP-003
+      - module: src/relay/
+        lines: 0.87
+        branches: 0.81
+        notes: IMPL-MAP-004
+    total:
+      lines: 0.91
+      branches: 0.86
+  requirements_coverage:
+    by_priority:
+      - priority: must
+        total: 6
+        covered: 6
+        partial: 0
+        uncovered: 0
+      - priority: should
+        total: 2
+        covered: 1
+        partial: 1
+        uncovered: 0
+      - priority: could
+        total: 1
+        covered: 0
+        partial: 1
+        uncovered: 0
+      - priority: wont
+        total: 1
+        covered: 0
+        partial: 0
+        uncovered: 1
+  nfr_results:
+    - metric_id: RE-QA-001
+      target: "p95 < 200 ms"
+      actual: "167 ms"
+      pass: true
+      notes: "k6 run id 412"
+    - metric_id: RE-QA-002
+      target: "success rate > 99.9%"
+      actual: "99.96%"
+      pass: true
+      notes: "k6 + chaos toolkit run id 413"
+    - metric_id: RE-QA-003
+      target: "webhook 95% within 30 s"
+      actual: "92% within 30 s"
+      pass: false
+      notes: "synthetic relay only; accepted as residual risk (Should)"
+  residual_risks:
+    - re_id: FR-008
+      priority: could
+      status: partial
+      reason: "challenge-required 3DS path requires IdP step-up sandbox; not in CI"
+    - re_id: RE-QA-003
+      priority: should
+      status: partial
+      reason: "real subscriber latency not measured; deferred to operation as synthetic monitor"
+  recommendations:
+    - "Wire the IdP step-up sandbox into CI before opening the v2 milestone."
+    - "Move the synthetic relay metric from staging to a continuous probe in operation."
+    - "Increase relay branch coverage above 0.85 by exercising backoff edge cases."
+
+quality_gate:
+  criteria:
+    code_coverage_min: 0.85
+    requirements_coverage_must_min: 1.00
+    max_failed_tests: 0
+    nfr_metric_refs: [RE-QA-001, RE-QA-002, RE-QA-003]
+  actuals:
+    code_coverage: 0.91
+    requirements_coverage_must: 1.00
+    failed_tests: 0
+    nfr_results:
+      - metric_id: RE-QA-001
+        target: "p95 < 200 ms"
+        actual: "167 ms"
+        pass: true
+      - metric_id: RE-QA-002
+        target: "success rate > 99.9%"
+        actual: "99.96%"
+        pass: true
+      - metric_id: RE-QA-003
+        target: "webhook 95% within 30 s"
+        actual: "92% within 30 s"
+        pass: false
+  verdict: pass
+  reasons:
+    - "all Must requirements covered"
+    - "code coverage 0.91 ≥ 0.85"
+    - "0 failed tests"
+    - "RE-QA-003 partial accepted as Should residual risk"
+  evaluated_at: 2026-04-11T14:00:00Z

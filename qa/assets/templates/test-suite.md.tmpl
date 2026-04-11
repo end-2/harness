@@ -1,0 +1,63 @@
+# Test Suite
+
+<!--
+This document records every generated test case as a Given-When-Then
+triple with explicit refs back to RE acceptance_criteria, Arch components,
+and Impl modules. The actual test source files live under the project
+tree (e.g. tests/auth/test_service.py) and are referenced by file path,
+not duplicated here.
+
+ID convention: QA-SUITE-NNN with cases numbered TS-NNN-CMM
+-->
+
+## 1. Suite Summary
+
+| Suite ID | Type | Target Module | Framework | RE refs |
+|----------|------|---------------|-----------|---------|
+| <!-- TS-001 --> | <!-- unit --> | <!-- src/auth/ --> | <!-- pytest --> | <!-- FR-002, NFR-003 --> |
+
+## 2. Suite TS-001 — <!-- name -->
+
+**Type**: <!-- unit | integration | e2e | contract | nfr -->
+
+**Target module**: <!-- src/auth/ (IMPL-MAP-001) -->
+
+**Framework**: <!-- pytest 8.x (ARCH-TECH-002) -->
+
+**Test files**
+
+- <!-- tests/auth/test_service.py -->
+- <!-- tests/auth/test_repository.py -->
+
+**Upstream refs**
+
+- RE: <!-- FR-002, NFR-003 -->
+- Arch: <!-- ARCH-COMP-001, ARCH-DEC-002 -->
+- Impl: <!-- IMPL-MAP-001, IMPL-IDR-001 -->
+
+### Cases
+
+#### TS-001-C01 — <!-- short title -->
+
+| Field | Value |
+|-------|-------|
+| Description | <!-- one sentence --> |
+| Technique | <!-- boundary_value | equivalence_partition | decision_table | state_transition | property_based | example_based --> |
+| Acceptance criterion ref | <!-- FR-002.AC-1 --> |
+| Test file | <!-- tests/auth/test_service.py::test_login_with_valid_credentials --> |
+
+**Given**
+
+<!-- precondition -->
+
+**When**
+
+<!-- action -->
+
+**Then**
+
+<!-- expected outcome (must be a concrete, observable assertion) -->
+
+#### TS-001-C02 — <!-- ... -->
+
+<!-- repeat -->
