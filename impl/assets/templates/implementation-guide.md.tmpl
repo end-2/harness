@@ -1,0 +1,57 @@
+# Implementation Guide
+
+<!--
+This document tells a new contributor how to set up, build, run, and extend
+the generated code. It is the operational hand-off from Impl to the people
+(or downstream skills) who will actually use the code.
+-->
+
+## 1. Prerequisites
+
+| Tool / Runtime | Version | Notes |
+|---------------|---------|-------|
+| <!-- Node.js --> | <!-- 20.x --> | <!-- ... --> |
+| <!-- Docker --> | <!-- 24+ --> | <!-- ... --> |
+
+## 2. Setup Steps
+
+1. <!-- Clone the repository -->
+2. <!-- Install dependencies: `pnpm install` -->
+3. <!-- Copy `.env.example` to `.env` and fill in values -->
+4. <!-- Run database migrations -->
+
+## 3. Build Commands
+
+```bash
+# <!-- e.g. pnpm build, go build ./..., mvn package -->
+```
+
+## 4. Run Commands
+
+```bash
+# <!-- e.g. pnpm dev, go run ./cmd/api, uvicorn app.main:app --reload -->
+```
+
+## 5. Conventions
+
+<!--
+Summarise the conventions detected from the existing codebase and/or enforced
+on the generated code: naming, file layout, error handling, logging style,
+test layout. Cite the source (detected from existing code / enforced by IDR).
+-->
+
+- **Naming**: <!-- snake_case for files, PascalCase for classes -->
+- **Error handling**: <!-- Go-style error returns / Result<T,E> / exceptions -->
+- **Logging**: <!-- structured JSON via pino -->
+- **Tests**: <!-- co-located under __tests__/ -->
+
+## 6. Extension Points
+
+<!--
+Where should a future contributor touch when they want to add a feature?
+Tie each extension point back to a module path from the Implementation Map.
+-->
+
+| Goal | Touch Point | Notes |
+|------|------------|-------|
+| <!-- Add a new auth provider --> | <!-- src/auth/providers/ --> | <!-- implement IAuthProvider --> |

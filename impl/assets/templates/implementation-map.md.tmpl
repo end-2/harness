@@ -1,0 +1,50 @@
+# Implementation Map
+
+<!--
+This document maps every Arch component (COMP-xxx) to the concrete source
+modules, packages, and entry points that implement it. It is the primary
+traceability bridge from Arch's component structure down to the file system.
+
+ID convention: IM-001, IM-002, ...
+-->
+
+## 1. Map Summary
+
+| ID | Component Ref | Module Path | Entry Point | RE Refs |
+|----|--------------|-------------|-------------|---------|
+| IM-001 | <!-- ARCH-COMP-001 / COMP-001 --> | <!-- src/auth/ --> | <!-- src/auth/index.ts --> | <!-- FR-002, NFR-003 --> |
+
+## 2. Module Entries
+
+### IM-001 — <!-- component name -->
+
+**Component Ref**: <!-- ARCH-COMP-001 (Arch component id) -->
+
+**Module Path**: <!-- src/auth/ -->
+
+**Entry Point**: <!-- src/auth/index.ts -->
+
+**Responsibility (from Arch)**
+
+<!-- One sentence lifted from the Arch component's responsibility field. -->
+
+**Internal Structure**
+
+```
+<!-- directory tree of the module, 2–3 levels deep -->
+src/auth/
+├── index.ts
+├── service.ts
+└── repository.ts
+```
+
+**Interfaces Implemented**
+
+| Arch Interface | Implementation File | Notes |
+|---------------|--------------------|----|
+| <!-- IAuthService --> | <!-- src/auth/service.ts --> | <!-- ... --> |
+
+**Upstream Refs**
+
+- Arch: <!-- ARCH-COMP-001, ARCH-DEC-002 -->
+- RE (via Arch): <!-- FR-002, NFR-003 -->

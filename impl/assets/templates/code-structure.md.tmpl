@@ -1,0 +1,65 @@
+# Code Structure
+
+<!--
+This document captures the generated project's overall shape:
+the directory layout, module-to-module dependencies, external libraries,
+build configuration, and environment configuration.
+
+It is the Impl counterpart to Arch's component diagram — but grounded in
+real paths and real dependencies.
+-->
+
+## 1. Project Root
+
+<!-- Absolute or repo-relative path, e.g. ./ or ./services/api -->
+
+## 2. Directory Layout
+
+```
+<!-- full directory tree, typically 2–3 levels deep, annotated inline -->
+.
+├── src/
+│   ├── auth/
+│   ├── api/
+│   └── shared/
+├── tests/
+├── package.json
+└── Dockerfile
+```
+
+## 3. Module Dependencies
+
+<!--
+Either a table or a Mermaid graph. Arch's `components.dependencies` is the
+authoritative direction — this section shows how those arrows land in code.
+-->
+
+```mermaid
+graph LR
+  api --> auth
+  api --> shared
+  auth --> shared
+```
+
+| From Module | To Module | Kind | Notes |
+|-------------|-----------|------|-------|
+| <!-- src/api --> | <!-- src/auth --> | <!-- import / runtime / build --> | <!-- ... --> |
+
+## 4. External Dependencies
+
+| Name | Version | Purpose | Tech-Stack Ref |
+|------|---------|---------|----------------|
+| <!-- fastapi --> | <!-- 0.110.x --> | <!-- HTTP framework --> | <!-- ARCH-TECH-001 --> |
+
+## 5. Build Configuration
+
+| File | Purpose |
+|------|---------|
+| <!-- package.json / pyproject.toml / go.mod --> | <!-- ... --> |
+| <!-- Dockerfile --> | <!-- ... --> |
+
+## 6. Environment Configuration
+
+| Variable / File | Purpose | Required |
+|-----------------|---------|----------|
+| <!-- DATABASE_URL --> | <!-- connection string --> | <!-- yes --> |

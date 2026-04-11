@@ -1,0 +1,35 @@
+# Metadata skeleton for the Implementation Map section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: IMPL-MAP-000
+section: implementation-map
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: IMPL-MAP-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+implementation_map: []
+# - id: IM-001
+#   component_ref: ARCH-COMP-001
+#   module_path: src/auth/
+#   entry_point: src/auth/index.ts
+#   internal_structure: |
+#     src/auth/
+#     ├── index.ts
+#     ├── service.ts
+#     └── repository.ts
+#   interfaces_implemented:
+#     - arch_interface: IAuthService
+#       file: src/auth/service.ts
+#   arch_refs: [ARCH-COMP-001, ARCH-DEC-002]
+#   re_refs: [FR-002, NFR-003]
