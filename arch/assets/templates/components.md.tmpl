@@ -1,0 +1,43 @@
+# Component Structure
+
+<!--
+This document is the "Component Structure" section of the Arch artifact.
+List every major component of the system. "Major" means something that could
+plausibly be a separate deployable, a separate library, or a clear internal
+boundary — not every file.
+
+ID convention:
+  - COMP-001, COMP-002, ...
+
+Every component must cite the FR/NFR IDs it is responsible for. If a component
+has no re_refs, it either does not belong in this artifact yet, or some FR/NFR
+has been overlooked — stop and investigate.
+-->
+
+## 1. Overview
+
+<!-- One short paragraph describing the overall shape of the component graph. -->
+
+## 2. Components
+
+| ID | Name | Responsibility | Type | Interfaces | Dependencies | RE Refs |
+|----|------|----------------|------|------------|--------------|---------|
+| COMP-001 | <!-- name --> | <!-- one sentence --> | <!-- service / library / gateway / store / queue --> | <!-- e.g. HTTP /api (inbound), gRPC AuthClient (outbound) --> | <!-- COMP-002, COMP-003 --> | <!-- FR-001, NFR-003 --> |
+
+## 3. Component Details
+
+### COMP-001 — <!-- name -->
+
+**Responsibility**: <!-- one paragraph -->
+
+**Interfaces**
+
+| Name | Direction | Protocol | Description |
+|------|-----------|----------|-------------|
+| <!-- e.g. /api/v1/search --> | inbound | HTTP/JSON | <!-- ... --> |
+
+**Dependencies**: <!-- COMP-002, COMP-003 -->
+
+**RE Refs**: <!-- FR-001, NFR-003 -->
+
+**Notes**: <!-- anything the implementer needs to know that does not fit above -->

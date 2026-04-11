@@ -1,0 +1,80 @@
+# Diagrams
+
+<!--
+This document is the "Diagrams" section of the Arch artifact.
+Use Mermaid for every diagram. Every diagram gets a caption below the code
+block explaining what it shows and which RE drivers (quality attributes,
+constraints) it answers to.
+
+Diagram types used here:
+  - c4-context     (always)
+  - c4-container   (heavy mode)
+  - sequence       (one per top flow)
+  - data-flow      (when data movement is non-trivial)
+-->
+
+## 1. C4 — Context
+
+```mermaid
+C4Context
+  title System Context — <!-- system name -->
+  Person(user, "End user", "<!-- description -->")
+  System(system, "<!-- system name -->", "<!-- one line -->")
+  System_Ext(ext1, "<!-- external system -->", "<!-- ... -->")
+  Rel(user, system, "uses")
+  Rel(system, ext1, "<!-- ... -->")
+```
+
+*Caption*: <!-- what the diagram shows, and which RE drivers it answers to -->
+
+## 2. C4 — Container
+
+<!-- Heavy mode only. Delete this section in light mode. -->
+
+```mermaid
+C4Container
+  title Container View — <!-- system name -->
+  Person(user, "End user")
+  System_Boundary(sys, "<!-- system name -->") {
+    Container(web, "Web UI", "<!-- framework -->", "<!-- responsibility -->")
+    Container(api, "API", "<!-- framework -->", "<!-- responsibility -->")
+    ContainerDb(db, "Database", "<!-- db engine -->", "<!-- data -->")
+  }
+  Rel(user, web, "uses", "HTTPS")
+  Rel(web, api, "calls", "HTTPS/JSON")
+  Rel(api, db, "reads/writes", "<!-- protocol -->")
+```
+
+*Caption*: <!-- ... -->
+
+## 3. Sequence — <!-- flow name, e.g. "Search request" -->
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant G as API Gateway
+  participant S as Search Service
+  participant D as DB
+  U->>G: GET /search?q=...
+  G->>S: forward
+  S->>D: query
+  D-->>S: rows
+  S-->>G: result
+  G-->>U: 200 OK
+```
+
+*Caption*: <!-- which RE driver this exercises; e.g. "validates NFR-003 (p95 < 200ms)" -->
+
+## 4. Data Flow
+
+<!-- Include only when data movement is non-trivial. Delete otherwise. -->
+
+```mermaid
+flowchart LR
+  src[<!-- source -->] --> ingest[Ingest]
+  ingest --> store[(Primary Store)]
+  store --> analytics[Analytics Pipeline]
+  analytics --> dash[Dashboard]
+```
+
+*Caption*: <!-- ... -->

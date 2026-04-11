@@ -1,0 +1,32 @@
+# Technology Stack
+
+<!--
+This document is the "Technology Stack" section of the Arch artifact.
+Every entry must cite a decision id (AD-NNN) or a constraint id (CON-NNN).
+Do not include a technology that has no anchor — it will be rejected at review.
+-->
+
+## 1. Overview
+
+<!-- One short paragraph naming the runtime shape (e.g. "Python 3.12 services
+on AWS, with PostgreSQL as the primary store and Redis as a cache"). -->
+
+## 2. Stack
+
+| Category | Choice | Rationale | Decision Ref | Constraint Ref |
+|----------|--------|-----------|--------------|----------------|
+| language | <!-- e.g. TypeScript --> | <!-- why --> | AD-001 | <!-- CON-002 --> |
+| framework | <!-- e.g. FastAPI --> | <!-- ... --> | AD-002 | |
+| database | <!-- e.g. PostgreSQL 16 --> | <!-- ... --> | AD-003 | CON-004 |
+| messaging | <!-- e.g. Kafka / SQS / none --> | <!-- ... --> | | |
+| infra | <!-- e.g. AWS ECS Fargate --> | <!-- ... --> | | CON-002 |
+| observability | <!-- e.g. OTel + Grafana --> | <!-- ... --> | | |
+
+## 3. Notes
+
+<!--
+Anything worth capturing that does not fit in the table:
+- versions pinned for a specific reason
+- known compatibility concerns
+- operational prerequisites the user must prepare
+-->

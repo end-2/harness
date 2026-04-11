@@ -1,0 +1,57 @@
+# Architecture Decisions
+
+<!--
+This document is the "Architecture Decisions" section of the Arch artifact.
+It holds two things:
+
+  1. A summary table of every load-bearing decision (id, title, status).
+  2. One ADR (Architecture Decision Record) per decision, in Michael Nygard
+     form: Status / Context / Decision / Consequences.
+
+ID convention:
+  - AD-001, AD-002, ...
+
+Every ADR must cite the RE refs that drove it (NFR-XXX, CON-XXX, RE-QA-XXX).
+-->
+
+## 1. Decision Summary
+
+| ID | Title | Status | RE Refs |
+|----|-------|--------|---------|
+| AD-001 | <!-- title --> | Proposed | <!-- e.g. NFR-003, CON-002 --> |
+
+## 2. Architecture Decision Records
+
+### AD-001 — <!-- title -->
+
+**Status**: Proposed <!-- Proposed | Accepted | Deprecated | Superseded by AD-NNN -->
+
+**Context**
+
+<!--
+What forces are at play? Cite RE refs explicitly:
+"Driven by NFR-003 (p95 < 200ms) and the hard constraint CON-002 (must run on
+the existing AWS account). The top-ranked quality attribute RE-QA-001 is
+performance, with availability as a near-second."
+-->
+
+**Decision**
+
+<!-- One paragraph stating the chosen option in plain language. -->
+
+**Alternatives Considered**
+
+| Alternative | Pros | Cons | Why rejected |
+|-------------|------|------|--------------|
+| <!-- option A --> | <!-- ... --> | <!-- ... --> | <!-- ... --> |
+
+**Consequences**
+
+<!--
+What becomes easier? What becomes harder? What are the downstream impacts on
+other components, on operations, on the team? Be honest about the trade-offs.
+-->
+
+- Positive: <!-- ... -->
+- Negative: <!-- ... -->
+- Risks: <!-- ... -->
