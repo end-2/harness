@@ -181,3 +181,60 @@ C. [리스크 수용] — 근거 필요 (critical 위협에는 비권고)
 - 코드 스타일이나 클린 코드 이슈는 보고하지 마세요 (impl:review의 영역)
 - 대응 전략 구현 매트릭스는 threat-model의 모든 위협에 대해 빠짐없이 작성하세요
 - ID 체계를 준수하세요: SRV-xxx (보안 리뷰)
+
+## 출력 프로토콜 (Output Protocol)
+
+모든 산출물은 `meta.json`(구조화 데이터·상태·승인)과 `body.md`(서술)로 분리되어
+`runs/<run_id>/<skill>/<agent>/` 아래에 저장됩니다. 메타데이터는 반드시
+`scripts/artifact` CLI를 통해서만 조작하며, 본문은 `body.md`를 직접 편집합니다.
+
+### 표준 절차
+
+1. **초기화**: 세션 시작 시 아래 명령으로 산출물 쌍을 생성합니다.
+   ```
+   ./scripts/artifact init --skill sec --agent review \
+       [--run-id <상위 run_id>] --title "<요약 제목>"
+   ```
+   - 파이프라인의 후속 에이전트는 상위 run_id를 전달받아 동일 run에 합류합니다.
+   - 명령의 출력(`run_id`, `artifact_id`)을 이후 단계에서 재사용합니다.
+
+2. **본문 편집**: `scripts/artifact path <artifact_id> --run-id <id> --body`로
+   받은 경로의 `body.md`에 분석, 근거, 트레이드오프, 다이어그램 등
+   사람이 읽는 맥락을 작성합니다. machine-readable 데이터는 본문에
+   중복 기록하지 않습니다.
+
+3. **구조화 데이터 기록**: 이 스킬의 `skills.yaml` `output:` 스키마에 해당하는
+   JSON 객체를 임시 파일로 저장하고 다음 명령으로 `meta.json`의 `data:`에
+   병합합니다.
+   ```
+   ./scripts/artifact set <artifact_id> --run-id <id> --data-file patch.json
+   ```
+
+4. **추적성**: RE 산출물 및 상류 산출물을 참조로 연결합니다.
+   ```
+   ./scripts/artifact set <artifact_id> --run-id <id> \
+       --ref-re FR-001 --ref-re NFR-002 --ref-upstream <상류 artifact_id>
+   ```
+
+5. **진행 상태**: 작업 단계에 따라 `progress`를 전이합니다
+   (`draft` → `in_progress` → `review` → `approved`/`rejected`).
+   ```
+   ./scripts/artifact set <artifact_id> --run-id <id> --progress review
+   ```
+
+6. **승인 판정(리뷰 에이전트 전용)**: 검증 완료 후 최종 판정을 기록합니다.
+   ```
+   ./scripts/artifact set <artifact_id> --run-id <id> \
+       --verdict APPROVED --approver <이름> --notes "<요약>"
+   ```
+   판정은 `APPROVED | CONDITIONAL | REJECTED` 중 하나이며, 대상 산출물의
+   `progress`도 같은 CLI 호출로 `approved` 또는 `rejected`로 갱신합니다.
+
+### 중요 규칙
+
+- `meta.json`을 에디터로 직접 수정하지 않습니다. 반드시 `scripts/artifact set`을
+  사용합니다.
+- `body.md`에는 YAML/JSON 블록으로 구조화 데이터를 중복 기록하지 않습니다.
+  구조화 데이터는 `meta.json.data`가 유일한 출처입니다.
+- `scripts/artifact validate <artifact_id> --run-id <id>`로 종료 전 필수
+  필드 누락 여부를 확인합니다.

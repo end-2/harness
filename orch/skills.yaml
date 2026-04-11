@@ -299,7 +299,7 @@ dependencies:
       usage: 아키텍처 설계, 리뷰, ADR, 다이어그램
     - skill: impl
       version: ">=1.0.0"
-      agents: [generate, review, refactor, optimize]
+      agents: [generate, review, refactor, pattern]
       usage: 구현 생성, 리뷰, 리팩토링, 최적화
     - skill: qa
       version: ">=1.0.0"
