@@ -14,45 +14,141 @@
 - 중단된 실행의 재개(resume) 지원
 - 파이프라인 완료 후 프로젝트 구조 문서 및 릴리스 노트 자동 생성
 
+## 표준 Claude Code Skill 포맷 준수
+
+본 스킬은 [Claude Code Skill 공식 포맷](https://code.claude.com/docs/ko/skills)을 준수합니다.
+
+- 엔트리 포인트는 `orch/SKILL.md` 단일 파일이며, YAML frontmatter를 포함합니다.
+- SKILL.md 본문은 500줄 이하로 유지하고, 상세 설계·프롬프트·스키마·파이프라인 정의는 `references/` 하위 파일로 분리하여 온디맨드 로드됩니다.
+- 템플릿(문서 골격, 메타데이터 초기값)은 `assets/templates/`에 위치합니다.
+- 스크립트는 `scripts/`에 두고 SKILL.md에서 "실행하되 로드하지 않음" 규약으로 참조합니다.
+- 문자열 치환(`$ARGUMENTS`, `${CLAUDE_SKILL_DIR}`)과 동적 컨텍스트 주입(`` !`<command>` ``)을 적극 활용합니다.
+- 내부 "에이전트"(dispatch/pipeline/relay/run/config/status)는 Skill 표준의 `agent` frontmatter 값(Explore/Plan/general-purpose/custom subagent)과 개념이 충돌하지 않도록 `references/agents/*.md`의 **서브에이전트 프롬프트 템플릿**으로 재배치되며, SKILL.md가 `Task` 도구로 스폰합니다.
+
+### `orch/SKILL.md` Frontmatter
+
+```yaml
+---
+name: orch
+description: Orchestrates the full SDLC skill suite (ex, re, arch, impl, qa, sec, devops) as a single entry point. Use when the user wants to run a multi-skill pipeline, resume a prior run, or route a natural-language request to the right skill(s). Spawns subagents per step, relays dialogue, and persists per-run artifacts.
+argument-hint: "<자연어 요청 | resume | status | config ...>"
+context: fork
+agent: general-purpose
+model: claude-opus-4-6
+effort: high
+user-invocable: true
+allowed-tools:
+  - Task
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - EnterWorktree
+  - ExitWorktree
+paths:
+  - harness-output/**
+  - ${CLAUDE_SKILL_DIR}/references/**
+  - ${CLAUDE_SKILL_DIR}/assets/**
+  - ${CLAUDE_SKILL_DIR}/scripts/**
+hooks:
+  post-complete:
+    - bash: ${CLAUDE_SKILL_DIR}/scripts/pipeline_state.py render --run "$RUN_ID"
+---
+```
+
+**frontmatter 필드 근거**
+- `context: fork` — heavy 파이프라인 실행 시 부모 세션 컨텍스트 오염을 방지 (배치/오케스트레이션 스킬 권고).
+- `agent: general-purpose` — dispatch 라우팅에 자유도가 필요.
+- `model` / `effort: high` — 라우팅 판단과 파이프라인 계획 수립에 고수준 추론 필요.
+- `allowed-tools` — `Task`(서브에이전트 스폰), `Bash`(스크립트 실행), 파일 I/O 및 worktree 격리 도구 전부 선언.
+- `paths` — 로더가 사전에 인지해야 할 파일 경로 범위 명시.
+- `hooks.post-complete` — 파이프라인 종료 시 `project-structure.md` / `release-note.md` 생성 및 `current-run.md` 갱신을 harness가 자동 트리거.
+
+### SKILL.md 본문 상단 패턴
+
+SKILL.md는 다음과 같은 동적 컨텍스트 주입 헤더로 시작합니다. 이를 통해 "current-run.md를 읽어라"는 지시를 모델이 아닌 harness가 책임집니다.
+
+```markdown
+## Current State
+!`test -f harness-output/current-run.md && cat harness-output/current-run.md || echo "status: idle"`
+
+## Skill Root
+!`echo ${CLAUDE_SKILL_DIR}`
+
+## User Request
+$ARGUMENTS
+```
+
+`${CLAUDE_SKILL_DIR}`는 `references/`, `assets/templates/`, `scripts/` 경로를 하드코딩하지 않도록 모든 참조 링크에 사용됩니다.
+
 ## 목표 구조
 
 ```
 orch/
-├── skills.yaml
-├── agents/
-│   ├── dispatch.md
-│   ├── pipeline.md
-│   ├── relay.md
-│   ├── run.md
-│   ├── config.md
-│   └── status.md
-├── rules/
-│   ├── base.md
-│   ├── output-format.md
-│   ├── escalation-protocol.md
-│   └── dialogue-protocol.md
-├── pipelines/
-│   ├── full-sdlc.md
-│   ├── full-sdlc-existing.md
-│   ├── new-feature.md
-│   ├── new-feature-existing.md
-│   ├── security-gate.md
-│   ├── security-gate-existing.md
-│   ├── quick-review.md
-│   └── explore.md
-├── prompts/
-│   ├── dispatch.md
-│   ├── pipeline.md
-│   ├── relay.md
-│   ├── run.md
-│   ├── config.md
-│   └── status.md
+├── SKILL.md                          # 엔트리 포인트 (<500줄, frontmatter + dispatch 흐름 요약)
+├── skills.yaml                       # (선택) 하위 스킬 레지스트리
+├── references/                       # 온디맨드 로드 — SKILL.md가 링크로 참조
+│   ├── rules/
+│   │   ├── base.md
+│   │   ├── output-format.md
+│   │   ├── escalation-protocol.md
+│   │   └── dialogue-protocol.md
+│   ├── pipelines/
+│   │   ├── full-sdlc.md
+│   │   ├── full-sdlc-existing.md
+│   │   ├── new-feature.md
+│   │   ├── new-feature-existing.md
+│   │   ├── security-gate.md
+│   │   ├── security-gate-existing.md
+│   │   ├── quick-review.md
+│   │   └── explore.md
+│   ├── agents/                       # 내부 subagent 프롬프트 템플릿 (Task 도구로 스폰)
+│   │   ├── dispatch.md
+│   │   ├── pipeline.md
+│   │   ├── relay.md
+│   │   ├── run.md
+│   │   ├── config.md
+│   │   └── status.md
+│   └── schemas/
+│       ├── artifact-meta.md          # <name>.meta.yaml 스키마 설명
+│       └── pipeline-meta.md          # pipeline.meta.yaml / run.meta.yaml 스키마
+├── assets/
+│   └── templates/                    # 표준 `assets/` 규약
+│       ├── artifact.meta.yaml        # 하위 스킬 산출물 메타데이터 템플릿
+│       ├── pipeline.meta.yaml        # Orch 파이프라인 상태 메타데이터 템플릿
+│       ├── run.meta.md               # 사람 읽기용 run 렌더링 템플릿
+│       ├── current-run.md            # current-run.md 초기 템플릿
+│       ├── ex/                       # ex 스킬 산출물 문서 템플릿 (4개)
+│       ├── re/                       # re 스킬 산출물 문서 템플릿 (3개)
+│       ├── arch/                     # arch 스킬 산출물 문서 템플릿 (4개)
+│       ├── impl/                     # impl 스킬 산출물 문서 템플릿 (4개)
+│       ├── qa/                       # qa 스킬 산출물 문서 템플릿 (4개)
+│       ├── sec/                      # sec 스킬 산출물 문서 템플릿 (4개)
+│       └── devops/                   # devops 스킬 산출물 문서 템플릿 (4개)
+├── scripts/                          # "실행하되 로드하지 않음" 규약
+│   ├── artifact.py                   # 하위 스킬 산출물 메타데이터 조작/조회 CLI
+│   ├── pipeline_state.py             # Orch 자체 파이프라인 상태 메타데이터 CLI
+│   └── lib/
+│       ├── meta_io.py                # YAML 로드/저장, 스키마 검증
+│       └── refs.py                   # upstream/downstream 참조 해석
 └── examples/
     ├── full-run-example.md
     ├── dialogue-relay-example.md
     ├── escalation-example.md
-    └── resume-example.md
+    ├── resume-example.md
+    ├── artifact-meta-example.yaml    # 산출물 메타데이터 파일 예시
+    ├── artifact-doc-example.md       # 메타데이터와 쌍을 이루는 문서 파일 예시
+    └── pipeline-meta-example.yaml    # Orch 파이프라인 상태 메타데이터 예시
 ```
+
+**표준 준수 메모**
+- `SKILL.md`가 엔트리 포인트이며 필수.
+- `rules/`, `pipelines/`, `prompts/`, `agents/`는 모두 `references/` 하위로 통합. `prompts/`는 `agents/`와 중복이었으므로 제거.
+- `templates/` → `assets/templates/`로 이동 (표준 `assets/` 규약).
+- `scripts/`는 표준 규약 그대로 유지.
+- `references/agents/*.md`의 "에이전트" 파일은 SKILL.md가 `Task` 도구로 스폰할 때 사용하는 **subagent 프롬프트 템플릿**이며, frontmatter `agent` 필드 값과는 다른 개념임을 명시.
 
 ---
 
@@ -61,18 +157,28 @@ orch/
 각 실행(run)은 독립된 디렉토리에 산출물을 저장합니다.
 사용자는 출력 루트 경로를 지정할 수 있습니다 (기본값: `./harness-output/`).
 
+각 산출물은 **메타데이터 파일(`*.meta.yaml`)과 문서 파일(`*.md`)의 쌍**으로 관리됩니다.
+메타데이터 파일은 에이전트가 직접 편집하지 않고, `scripts/artifact.py`를 통해서만 갱신합니다.
+문서 파일은 `scripts/artifact.py init`이 `assets/templates/`의 템플릿에서 기본 골격을 생성한 뒤 에이전트가 본문을 채웁니다.
+
 ```
 <output-root>/
-├── current-run.md                          # 현재 실행 상태 스냅샷
+├── current-run.md                          # 현재 실행 상태 스냅샷 (사람이 읽는 뷰)
+├── pipeline.meta.yaml                      # Orch 파이프라인 상태 메타데이터 (스크립트 전용)
 └── runs/
     └── <run-id>/                           # 형식: YYYYMMDD-HHmmss-<4자리-해시>
-        ├── run.meta.md                     # 실행 메타데이터, 파이프라인 상태
+        ├── run.meta.yaml                   # 실행 메타데이터, 파이프라인 상태 (스크립트 전용)
+        ├── run.meta.md                     # run.meta.yaml의 사람 읽기용 렌더링
         ├── project-structure.md            # 프로젝트 구조 문서 (완료 시 생성)
         ├── release-note.md                 # 릴리스 노트 (완료 시 생성)
         ├── ex/
+        │   ├── project_structure_map.meta.yaml
         │   ├── project_structure_map.md
+        │   ├── technology_stack_detection.meta.yaml
         │   ├── technology_stack_detection.md
+        │   ├── component_relationship_analysis.meta.yaml
         │   ├── component_relationship_analysis.md
+        │   ├── architecture_inference.meta.yaml
         │   └── architecture_inference.md
         ├── re/
         │   ├── requirements_spec.md
@@ -104,6 +210,121 @@ orch/
             ├── observability_config.md
             └── operational_runbooks.md
 ```
+
+> 위 트리는 `ex/`만 메타/문서 쌍을 명시적으로 보였습니다. 실제로는 모든 스킬 디렉토리(`re/`, `arch/`, `impl/`, `qa/`, `sec/`, `devops/`) 내 모든 산출물이 **`<name>.meta.yaml`과 `<name>.md`의 쌍**으로 생성됩니다.
+
+---
+
+## 메타데이터와 문서의 분리
+
+산출물은 **구조화된 메타데이터 파일**과 **사람이 읽는 문서 파일**로 분리합니다. 이 분리가 Orch의 조율 기능의 근간이 됩니다.
+
+### 왜 분리하는가
+
+- **관심사 분리**: 상태/추적/승인 같은 기계가 소비하는 데이터와, 사람이 읽는 서술은 구조가 다릅니다. 한 파일에 섞으면 에이전트가 문서 본문을 수정할 때 상태 필드가 오염될 위험이 있습니다.
+- **Orch의 관찰 대상**: Orch(특히 pipeline/dispatch 에이전트)는 각 하위 스킬의 산출물 **상태(phase)와 승인(approval)**을 기반으로 다음 스킬 트리거 여부를 결정합니다. 메타데이터가 고정된 위치에 있어야 이 관찰이 신뢰 가능해집니다.
+- **파이프라인 상태 저장소로서의 메타데이터**: 각 하위 스킬의 `*.meta.yaml`이 모여 Orch가 읽어들이는 분산 상태 저장소 역할을 합니다. `run.meta.yaml`과 `pipeline.meta.yaml`이 이를 요약/인덱싱합니다.
+
+### 왜 YAML인가 (JSON 아님)
+
+| 기준 | YAML | JSON |
+|------|------|------|
+| 주석 지원 | 있음 (승인 근거, 상태 변경 이유 기재 가능) | 없음 |
+| 사람 가독성 | 높음 (diff 리뷰 용이) | 보통 |
+| 스크립트 파싱 | `PyYAML`로 1줄 (`yaml.safe_load`) | 표준 라이브러리 |
+| 멀티라인 문자열 | 깔끔함 (`|`, `>`) | 이스케이프 지옥 |
+
+→ **YAML 채택**. 산출물 메타데이터는 승인/상태 변경 이력에 주석을 남기는 것이 유용하고, 사람이 PR 리뷰에서 바로 읽을 수 있어야 하기 때문입니다.
+
+### 산출물 메타데이터 스키마 (`<name>.meta.yaml`)
+
+```yaml
+# 예: runs/20260410-143022-a7f3/re/requirements_spec.meta.yaml
+schema_version: 1
+artifact:
+  skill: re
+  agent: spec
+  name: requirements_spec
+  run_id: 20260410-143022-a7f3
+  doc_path: requirements_spec.md           # 쌍을 이루는 문서 파일 (상대 경로)
+  created_at: 2026-04-10T14:35:13+09:00
+  updated_at: 2026-04-10T14:36:45+09:00
+
+progress:
+  phase: drafting                          # pending | drafting | review | completed | failed
+  progress_pct: 60                         # 0~100
+  sections_total: 3
+  sections_filled: 2
+  last_transition: 2026-04-10T14:36:45+09:00
+
+approval:
+  state: pending                           # pending | approved | rejected | changes_requested
+  approver: null                           # 사용자 식별자 또는 "user"
+  approved_at: null
+  comment: null
+  history:
+    - state: pending
+      at: 2026-04-10T14:35:13+09:00
+      by: system
+
+traceability:
+  upstream_refs:                           # 이 산출물이 소비한 업스트림 (추적성)
+    - skill: re
+      artifact: requirements_elicitation
+      section_ids: [FR-001, FR-002, NFR-003]
+  downstream_refs:                         # 하류에서 이 산출물을 참조한 경우 역으로 기록
+    - skill: arch
+      artifact: architecture_decisions
+      section_ids: [AD-001]
+```
+
+### 문서 파일 (`<name>.md`)
+
+- 서술형 본문만 포함 (섹션 헤더 + 플레이스홀더 + 에이전트가 채운 내용).
+- 파일 상단에는 기존 `output-format.md` 규약대로 최소 메타 헤더만 유지(전체 상태는 `.meta.yaml`에 있음).
+- `templates/<skill>/<name>.md`에서 골격을 복제하여 생성되며, 에이전트는 섹션 본문만 편집합니다.
+
+### 스크립트를 통한 메타데이터 조작 (필수)
+
+**에이전트는 `*.meta.yaml`을 직접 편집하지 않습니다.** 모든 상태 전이는 `scripts/artifact.py`를 거칩니다. 이는 스키마 검증, 타임스탬프 자동화, 승인 이력 append-only 보장을 위해 필요합니다.
+
+`scripts/artifact.py` 주요 커맨드:
+
+| 커맨드 | 역할 |
+|--------|------|
+| `artifact.py init --skill <s> --name <n> --run <id>` | `templates/`에서 문서 골격과 `.meta.yaml`을 함께 생성 |
+| `artifact.py set-phase --path <meta> --phase <p>` | phase 전이 + 타임스탬프 자동 기록 |
+| `artifact.py set-progress --path <meta> --pct <n> --filled <n>` | 진행률 갱신 |
+| `artifact.py approve --path <meta> --approver <u> [--comment <c>]` | 승인 상태 기록 + history append |
+| `artifact.py reject --path <meta> --approver <u> --comment <c>` | 거부 기록 |
+| `artifact.py add-upstream --path <meta> --skill <s> --artifact <a> --sections <ids>` | 추적성 링크 추가 |
+| `artifact.py get --path <meta> --field <dot.path>` | 필드 조회 (Orch가 상태 관찰에 사용) |
+| `artifact.py query --run <id> --where phase=completed` | run 전체에서 조건 검색 (파이프라인 게이팅에 사용) |
+
+`scripts/pipeline_state.py`는 Orch 자체의 파이프라인 상태(`pipeline.meta.yaml`, `run.meta.yaml`)를 관리합니다:
+
+| 커맨드 | 역할 |
+|--------|------|
+| `pipeline_state.py init --run <id> --pipeline <name>` | `run.meta.yaml` 초기화 |
+| `pipeline_state.py set-step --run <id> --step <idx> --status <s>` | 스킬 단계 상태 갱신 (running/completed/blocked) |
+| `pipeline_state.py observe --run <id>` | 하위 스킬 `.meta.yaml`을 전부 스캔하여 phase/approval 요약 출력 (pipeline 에이전트의 게이팅 입력) |
+| `pipeline_state.py next --run <id>` | 현재 상태 기준 다음 실행 가능 스킬 목록 반환 |
+| `pipeline_state.py render --run <id>` | `run.meta.yaml` → `run.meta.md`와 `current-run.md`를 재생성 |
+
+### Orch 관점: 메타데이터를 통한 관찰과 게이팅
+
+Orch의 pipeline 에이전트는 각 스킬 완료 시 다음 순서로 동작합니다:
+
+1. 스킬 에이전트가 `complete`를 반환.
+2. run 에이전트가 산출물 문서 검증 후 `artifact.py set-phase --phase completed` 호출.
+3. 필요 시 relay를 거쳐 사용자 승인 수집 → `artifact.py approve` 호출.
+4. pipeline 에이전트가 `pipeline_state.py observe`로 전체 상태 요약 확인.
+5. `pipeline_state.py next`로 다음 단계 결정(게이팅: 승인 필수 스킬이 pending이면 블록).
+6. `pipeline_state.py render`로 사람이 읽는 `run.meta.md` / `current-run.md` 갱신.
+
+이 흐름에서 **각 하위 스킬의 `.meta.yaml`은 Orch가 읽어들이는 분산 상태 저장소**로 기능하며, Orch 자체의 `pipeline.meta.yaml` / `run.meta.yaml`은 그 인덱스/요약본 역할을 합니다.
+
+---
 
 ### `current-run.md` 스키마
 
@@ -140,7 +361,45 @@ orch/
 - last_updated: 2026-04-10T15:20:00+09:00
 ```
 
-### `run.meta.md` 스키마
+### `run.meta.yaml` / `run.meta.md` 스키마
+
+`run.meta.yaml`이 **정본(source of truth)**이며, 에이전트는 `pipeline_state.py`를 통해서만 갱신합니다.
+`run.meta.md`는 이 YAML을 사람이 읽기 좋게 렌더링한 뷰로, `pipeline_state.py render`가 자동 생성합니다.
+
+```yaml
+# run.meta.yaml (정본)
+schema_version: 1
+run_id: 20260410-143022-a7f3
+pipeline: full-sdlc
+output_root: ./harness-output
+created_at: 2026-04-10T14:30:22+09:00
+status: running                            # pending | running | paused | completed | failed
+steps:
+  - index: 1
+    skill: re
+    agent: elicit
+    status: completed                      # pending | running | dialogue | completed | failed
+    approval: approved
+    started_at: 2026-04-10T14:30:25+09:00
+    completed_at: 2026-04-10T14:35:12+09:00
+    artifacts: [re/requirements_elicitation]
+  - index: 3
+    skill: arch
+    agent: design
+    status: running
+    approval: pending
+    started_at: 2026-04-10T14:36:46+09:00
+    completed_at: null
+    artifacts: []
+dialogue_history:
+  - step: 1
+    turns: 5
+  - step: 3
+    turns: 2
+errors: []
+```
+
+렌더링된 `run.meta.md` 예시:
 
 ```markdown
 # Run: <run-id>
@@ -185,7 +444,9 @@ orch/
   - 기존 실행(run) 재개 요청 인식 및 라우팅
   - 컨텍스트 기반 라우팅 (현재 작업 단계 고려)
   - `current-run.md` 읽기를 통한 즉시 컨텍스트 파악 (run 디렉토리 스캔 불필요)
-- **입력**: 사용자 자연어 요청, `current-run.md` (현재 상태 스냅샷)
+- **입력**:
+  - SKILL.md `$ARGUMENTS` 치환값으로 받은 사용자 자연어 요청
+  - SKILL.md 헤더의 `` !`cat harness-output/current-run.md` `` 동적 주입 결과 (harness가 매 호출마다 주입하므로 dispatch가 별도 파일 읽기를 할 필요 없음)
 - **출력**: 파이프라인 정의 (스킬 목록 + 실행 순서 + 병렬 그룹) 또는 단일 스킬 호출 지시
 
 ### 2. `pipeline.md` — 파이프라인 에이전트
@@ -203,17 +464,28 @@ orch/
 - **에이전트 스폰 프로토콜**:
   ```
   각 스킬 단계마다:
-  1. 스킬 시스템 프롬프트 로드: <skill>/agents/<agent>.md
-  2. 기본 규칙 로드: orchestration/rules/base.md
-  3. 산출물 형식 규칙 로드: orchestration/rules/output-format.md
-  4. 업스트림 입력 조립: runs/<run-id>/<prev-skill>/*.md
+  1. 스킬 시스템 프롬프트 로드: ${CLAUDE_SKILL_DIR_<skill>}/SKILL.md 또는 references/agents/<agent>.md
+  2. 기본 규칙 로드: ${CLAUDE_SKILL_DIR}/references/rules/base.md
+  3. 산출물 형식 규칙 로드: ${CLAUDE_SKILL_DIR}/references/rules/output-format.md
+  4. 산출물 골격 생성: scripts/artifact.py init으로 assets/templates/<skill>/ 기반
+     문서 파일(.md)과 메타데이터 파일(.meta.yaml)을 함께 생성
+  5. 업스트림 입력 조립: runs/<run-id>/<prev-skill>/*.md
      (각 스킬이 실제로 소비하는 섹션만 전달 — 전체 업스트림 아님)
-  5. 전체 프롬프트 조립 = 기본 규칙 + 스킬 프롬프트 + 업스트림 데이터 + 출력 위치
-  6. Agent 도구로 에이전트 스폰
-  7. 에이전트 출력 수신
-  8. needs_user_input 포함 시 → relay 에이전트에 위임
-  9. complete 시 → run 에이전트에 검증/저장 위임
+  6. 전체 프롬프트 조립 = 기본 규칙 + 스킬 프롬프트 + 업스트림 데이터 + 출력 위치
+     + "메타데이터는 scripts/artifact.py를 통해서만 갱신하라"는 지시
+  7. Task 도구로 서브에이전트 스폰 (에이전트는 문서 .md만 편집)
+     - 병렬 그룹의 경우 각 스킬을 독립 worktree에서 실행:
+       EnterWorktree → 스폰 → ExitWorktree
+  8. 에이전트 출력 수신
+  9. needs_user_input 포함 시 → relay 에이전트에 위임
+  10. complete 시 → run 에이전트가 검증 후 artifact.py set-phase로 상태 전이
+  11. pipeline_state.py observe로 다음 단계 게이팅 판단
   ```
+- **병렬 실행 worktree 격리**:
+  - `[qa:generate, sec:audit, devops:pipeline]`와 같은 병렬 그룹의 스킬들은 동일 레포를 동시에 수정할 수 있어 충돌 위험이 있습니다.
+  - 표준 `/batch` 스킬 패턴을 차용하여, 각 병렬 스킬은 `EnterWorktree`로 독립된 git worktree에 진입 후 작업을 수행하고 완료 시 `ExitWorktree`로 정리합니다.
+  - 병렬 그룹 전원이 완료된 후 pipeline 에이전트가 산출물을 메인 worktree로 수집/머지합니다.
+  - `allowed-tools`에 `EnterWorktree` / `ExitWorktree`가 이 목적으로 선언되어 있습니다.
 - **사전 정의 파이프라인**:
   - `full-sdlc`: re:elicit → re:analyze → re:spec → arch:design → impl:generate → [qa:generate, sec:audit, devops:pipeline] (병렬)
   - `full-sdlc-existing`: ex:scan → ex:detect → ex:analyze → ex:map → re:elicit → re:analyze → re:spec → arch:design → impl:generate → [qa:generate, sec:audit, devops:pipeline] (병렬)
@@ -275,12 +547,13 @@ orch/
 
 - **역할**: 실행(run) 생명주기 관리, 산출물 디렉토리 생성/관리, 상태 추적, 재개 지원
 - **핵심 역량**:
-  - **초기화**: run-id 생성, `<output-root>/runs/<run-id>/` 디렉토리 구조 생성, `run.meta.md` 작성, `current-run.md` 갱신
+  - **초기화**: run-id 생성, `<output-root>/runs/<run-id>/` 디렉토리 구조 생성, `scripts/pipeline_state.py init`으로 `run.meta.yaml` 생성, render로 `run.meta.md`/`current-run.md` 갱신
+  - **산출물 골격 생성**: 스킬 실행 전 `scripts/artifact.py init`을 호출하여 `templates/<skill>/`의 문서 골격과 `.meta.yaml`을 함께 생성
   - **산출물 저장 위치**: 사용자 설정에서 출력 루트 경로 읽기 (기본: `./harness-output/`)
   - **산출물 검증**: 스킬 완료 시 필수 섹션 존재 여부 검증 (EX=4개, RE=3개, ARCH=4개, IMPL=4개, QA=4개, SEC=4개, DEVOPS=4개)
-  - **산출물 저장**: 검증 통과한 산출물을 해당 스킬 디렉토리에 Markdown 파일로 저장
-  - **상태 추적**: `run.meta.md`에 각 스킬 상태 실시간 업데이트, 매 상태 변경 시 `current-run.md` 동기화
-  - **재개(resume)**: `current-run.md`로 활성 run 즉시 확인 → `run.meta.md`에서 상세 상태 로드 → 중단 지점부터 재실행
+  - **상태 전이 (스크립트 경유)**: `artifact.py set-phase`, `set-progress`, `approve` 등을 호출해서만 `.meta.yaml`을 갱신 — YAML을 직접 편집하지 않음
+  - **상태 추적**: `pipeline_state.py set-step`으로 `run.meta.yaml`에 단계 상태 반영, `pipeline_state.py render`로 `run.meta.md` / `current-run.md` 동기화
+  - **재개(resume)**: `current-run.md`로 활성 run 즉시 확인 → `pipeline_state.py observe`로 `run.meta.yaml` + 하위 `.meta.yaml` 전체 스캔 → 중단 지점부터 재실행
   - **완료 문서 생성**: 파이프라인 완료 후 `project-structure.md`와 `release-note.md` 생성
   - **완료 시 정리**: `current-run.md`를 `status: idle`로 갱신, `last_completed_run` 기록
 - **실행 생명주기**:
@@ -592,43 +865,64 @@ ex:scan → ex:detect → ex:analyze → ex:map
 8. **사용자 개입 중계**: 대화형 스킬의 질문과 자동 실행 스킬의 예외를 통일된 relay 메커니즘으로 전달
 9. **재개 가능성**: `current-run.md`를 통해 활성 run을 즉시 식별하고, 중단된 실행을 상태 기반으로 재개 가능
 10. **빠른 컨텍스트 복원**: `current-run.md` 단일 파일로 현재 실행 상태를 즉시 파악 — 디렉토리 스캔 불필요
+11. **메타데이터-문서 분리 및 스크립트 경유 갱신**: 모든 산출물은 `<name>.meta.yaml`(상태/승인/추적성)과 `<name>.md`(서술)로 분리. 에이전트는 문서만 편집하고 메타데이터는 `scripts/artifact.py` / `scripts/pipeline_state.py`를 통해서만 갱신. 이 계층이 Orch가 하위 스킬 상태를 관찰하고 파이프라인을 게이팅·라우팅하는 기반이 됨
 
 ---
 
 ## 구현 단계
 
-### 1단계: 규칙 체계 (`rules/`)
+### 1단계: 규칙 체계 (`references/rules/`)
 
-- `base.md`: 모든 에이전트 공통 행동 규칙
-- `output-format.md`: 산출물 Markdown 형식 계약
+- `base.md`: 모든 에이전트 공통 행동 규칙 (메타데이터 직접 편집 금지 조항 포함)
+- `output-format.md`: 산출물 Markdown 형식 계약 + `.meta.yaml` / `.md` 분리 규약
 - `escalation-protocol.md`: 에스컬레이션 조건 및 방법
 - `dialogue-protocol.md`: `needs_user_input` / `user_response` 신호 형식
 
-### 2단계: 핵심 에이전트 (`agents/`)
+### 2단계: 메타데이터 스키마, 템플릿, 스크립트
 
-- `run.md`: 실행 생명주기, 디렉토리 생성, 산출물 검증/저장
-- `relay.md`: 사용자 대화 중계
-- `pipeline.md`: DAG 실행, 에이전트 스폰, relay 통합, 병렬 실행
-- `dispatch.md`: 의도 분석, 라우팅
+이 단계가 이후 모든 단계의 전제이므로 에이전트 구현보다 앞섭니다.
 
-### 3단계: 설정 및 현황 에이전트
+- `assets/templates/artifact.meta.yaml`: 산출물 메타데이터 템플릿 (phase, approval, traceability)
+- `assets/templates/pipeline.meta.yaml`: Orch 파이프라인 상태 메타데이터 템플릿
+- `assets/templates/run.meta.md`, `assets/templates/current-run.md`: 사람 읽기용 렌더링 초기 템플릿
+- `assets/templates/<skill>/*.md`: 각 스킬 산출물 문서 골격 템플릿 (섹션 헤더 + 플레이스홀더)
+- `references/schemas/artifact-meta.md`, `references/schemas/pipeline-meta.md`: 스키마 설명 문서
+- `scripts/lib/meta_io.py`: YAML 로드/저장 + 스키마 검증
+- `scripts/lib/refs.py`: upstream/downstream 추적성 링크 해석
+- `scripts/artifact.py`: `init` / `set-phase` / `set-progress` / `approve` / `reject` / `add-upstream` / `get` / `query`
+- `scripts/pipeline_state.py`: `init` / `set-step` / `observe` / `next` / `render`
 
-- `config.md`: 설정 관리 (출력 경로, 스킬 활성화, 파이프라인 템플릿)
-- `status.md`: 실행 이력 및 현황 조회
+### 3단계: `SKILL.md` 엔트리 포인트 작성
 
-### 4단계: 파이프라인 템플릿 (`pipelines/`)
+- `orch/SKILL.md`를 신설하고 앞 절의 frontmatter YAML 적용
+- 본문 상단에 `$ARGUMENTS` + `` !`cat harness-output/current-run.md` `` 주입 헤더 배치
+- 본문은 500줄 이내로 유지하고, 상세 설계는 `references/` 하위 파일에 대한 링크로 대체
+- `${CLAUDE_SKILL_DIR}` 기반으로 모든 내부 경로 참조
+
+### 4단계: 핵심 서브에이전트 프롬프트 (`references/agents/`)
+
+SKILL.md가 `Task` 도구로 스폰할 때 사용하는 프롬프트 템플릿입니다.
+
+- `run.md`: 실행 생명주기, 디렉토리 생성, `artifact.py init` 호출, 검증, `set-phase` 전이
+- `relay.md`: 사용자 대화 중계, 승인 응답을 `artifact.py approve`로 전달
+- `pipeline.md`: DAG 실행, 에이전트 스폰, `pipeline_state.py observe/next` 기반 게이팅, 병렬 실행, worktree 격리(`EnterWorktree`/`ExitWorktree`)
+- `dispatch.md`: 의도 분석, 라우팅, harness가 주입한 `current-run.md` 스냅샷 활용
+
+### 5단계: 설정 및 현황 서브에이전트
+
+- `references/agents/config.md`: 설정 관리 (출력 경로, 스킬 활성화, 파이프라인 템플릿)
+- `references/agents/status.md`: 실행 이력 및 현황 조회 (`artifact.py query`, `pipeline_state.py observe` 활용)
+
+### 6단계: 파이프라인 템플릿 (`references/pipelines/`)
 
 - `full-sdlc.md`, `full-sdlc-existing.md`, `new-feature.md`, `new-feature-existing.md`, `security-gate.md`, `security-gate-existing.md`, `quick-review.md`, `explore.md`
 
-### 5단계: 프롬프트 및 예시
+### 7단계: 예시 및 스킬 레지스트리
 
-- `prompts/`: 각 에이전트별 프롬프트 템플릿
-- `examples/`: 전체 실행, 대화 릴레이, 에스컬레이션, 재개 예시
+- `examples/`: 전체 실행, 대화 릴레이, 에스컬레이션, 재개 예시, **메타데이터/문서 파일 쌍 예시** (`artifact-meta-example.yaml` + `artifact-doc-example.md`), `pipeline-meta-example.yaml`
+- `skills.yaml`: 스킬 이름, 버전, 설명, 서브에이전트 목록, 의존 하위 스킬 목록, 파이프라인 실행 엔진 설정, 라우팅 규칙 설정 스키마
 
-### 6단계: 스킬 메타데이터 (`skills.yaml`)
+### 8단계: Hooks 연동
 
-- 스킬 이름, 버전, 설명
-- 에이전트 목록 및 역할 정의
-- 의존하는 모든 하위 스킬 목록
-- 파이프라인 실행 엔진 설정
-- 라우팅 규칙 설정 스키마
+- `hooks.post-complete`에 `scripts/pipeline_state.py render --run "$RUN_ID"`를 등록하여 파이프라인 완료 시 `run.meta.md` / `current-run.md` 자동 갱신
+- 추후 `project-structure.md` / `release-note.md` 생성도 post-hook으로 이관 검토
