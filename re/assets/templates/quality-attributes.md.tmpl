@@ -1,0 +1,32 @@
+# Quality Attribute Priorities
+
+<!--
+Rank the quality attributes that will drive architecture decisions. Rank 1
+is the highest priority. Every attribute must have a *measurable* target —
+"fast" is not a target, "p95 < 200ms for /search over 1M rows" is.
+
+If two attributes conflict, the row with the lower rank wins; record the
+trade-off explicitly in the "Trade-off Notes" column so downstream skills
+do not have to re-derive it.
+-->
+
+## 1. Priority Ranking
+
+| Rank | Attribute | Description | Metric | Trade-off Notes |
+|------|-----------|-------------|--------|----------------|
+| 1 | <!-- performance / security / ... --> | <!-- what it means here --> | <!-- measurable target --> | <!-- what it is traded against --> |
+
+## 2. Rationale
+
+<!--
+Short narrative explaining *why* the top-3 attributes are ranked the way
+they are. This is what the `arch` skill reads first when picking drivers.
+-->
+
+## 3. Scenarios
+
+<!--
+Optional but valuable: a concrete scenario per top attribute showing the
+target being hit or missed.
+  - Source of stimulus / Stimulus / Environment / Artifact / Response / Response measure
+-->
