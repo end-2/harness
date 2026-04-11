@@ -45,6 +45,23 @@ orch가 콘텐츠를 만들지는 않지만, 스킬 간 입출력을 조립·전
 - 각 스킬의 `*.meta.yaml` 상태(phase/approval)를 관찰하여 다음 스킬 트리거 여부 결정
 - 모든 메타데이터 조작은 orch의 `${CLAUDE_SKILL_DIR}/scripts/artifact.py`를 통해서만 이루어지며, 콘텐츠 스킬은 본문(`*.md`)만 편집합니다.
 
+### 산출물 경로 주입 규약 (`HARNESS_ARTIFACTS_DIR`)
+
+orch는 콘텐츠 스킬의 산출물 레이아웃을 run 단위로 격리하기 위해, 스킬 스폰 시 다음 환경변수를 명시적으로 주입합니다.
+
+| 환경변수 | 값 | 목적 |
+|----------|----|------|
+| `HARNESS_ARTIFACTS_DIR` | `<output-root>/runs/<run_id>/<skill>` | 해당 스킬의 모든 산출물(`*.md`, `*.meta.yaml`, `.reports/`)이 쓰여지는 루트 |
+| `HARNESS_RUN_ID` | `<run_id>` | 스킬이 run 식별자를 로그/리포트에 포함해야 할 때 참조 (선택) |
+
+각 콘텐츠 스킬의 `scripts/artifact.py`는 이미 `HARNESS_ARTIFACTS_DIR`를 1순위로 읽고, 미설정 시 `./artifacts/<skill>/`로 폴백합니다. 따라서 orch가 변수만 올바르게 주입하면 `runs/<run_id>/<skill>/` 레이아웃이 스크립트 수정 없이 자연히 성립합니다.
+
+- **orch 통한 실행**: 항상 `runs/<run_id>/<skill>/` 격리 (orch가 주입)
+- **개별 스킬 단독 실행**: 환경변수 없음 → 기존 `./artifacts/<skill>/` 평탄 레이아웃 유지 (단독 사용자의 멘탈 모델 단순화)
+- **리포트 디렉토리**: 각 스킬의 `.reports/`는 `HARNESS_ARTIFACTS_DIR` 하위에 자동 생성되므로 별도 규약이 필요 없습니다.
+
+이 규약은 orch가 스킬 독립성을 깨지 않으면서도 run 격리를 달성하는 **단일 접점**입니다. 스킬 스크립트에 run-id 생성 로직을 이중화하지 않고, run 생명주기 관리를 orch의 `run.py`에 집중시키기 위한 설계 결정입니다.
+
 상세한 레지스트리 구조와 디스커버리 규약은 `references/contracts/skill-registry.md`에 분리합니다.
 
 ## 적응적 깊이 (단일 스킬 vs 파이프라인 실행)
@@ -276,7 +293,7 @@ orch/
 
 ### `references/workflow/pipeline.md`
 - **역할**: DAG 기반 워크플로 실행, 스킬 간 흐름 제어
-- **핵심 역량**: 순차/병렬/조건부 실행, 각 스킬을 Task로 스폰, `needs_user_input` 감지 → relay 위임, 체크포인트 기록, 병렬 실행 시 `EnterWorktree`/`ExitWorktree`로 worktree 격리, 완료 후 보고서 생성
+- **핵심 역량**: 순차/병렬/조건부 실행, 각 스킬을 Task로 스폰(스폰 시 `HARNESS_ARTIFACTS_DIR=<output-root>/runs/<run_id>/<skill>` 및 `HARNESS_RUN_ID=<run_id>` 환경변수 주입 — 산출물 경로 주입 규약 절 참조), `needs_user_input` 감지 → relay 위임, 체크포인트 기록, 병렬 실행 시 `EnterWorktree`/`ExitWorktree`로 worktree 격리, 완료 후 보고서 생성
 - **입력**: dispatch 출력(파이프라인 정의), run-id, 산출물 경로
 - **출력**: 각 스킬 실행 결과 집계, 전체 워크플로 요약
 - **상호작용 모델**: 스킬 스폰 → 결과 수신 → `run.py observe`로 게이팅 → 다음 단계 결정
