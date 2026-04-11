@@ -73,6 +73,27 @@ Each stage has detailed behavior rules in `references/workflow/<stage>.md`. When
 
 The pipeline is **checkpoint-based**, not one-way. If a review scenario fails or the user disagrees with a decision, step back to `design` and re-iterate. In light mode, `adr` and the Container layer of `diagram` may be skipped — see `references/adaptive-depth.md`.
 
+### Subagent delegation (hybrid)
+
+Stages split between the **main agent** (which talks to the user) and isolated **subagents** (which work in a clean context window):
+
+| Stage | Runs in | Why |
+|-------|---------|-----|
+| 1. design | main | needs multi-turn dialogue to surface technical context, and is the only stage that writes the three structured sections to disk |
+| 2. adr | **subagent** | the load-bearing decisions are already settled in `design`; writing them up as Nygard ADRs is a focused, template-driven task that benefits from a context free of the design dialogue |
+| 3. diagram | **subagent** | pure visualisation over a confirmed design — a clean context produces tighter Mermaid and catches missing views |
+| 4. review | **subagent** | pure verification (scenario validation, constraint compliance, traceability) over settled artifacts — a clean context catches more gaps |
+
+**Sequencing rule (mandatory):** the four stages have a hard order — `design → adr → diagram → review` — because each consumes the previous one's output:
+
+- `adr` reads the decisions section produced by `design`
+- `diagram` reads the decisions, components, and tech-stack sections, plus the ADRs recorded in step 2
+- `review` reads everything above and validates it against RE
+
+Therefore **never spawn these subagents in parallel**, and never start one before its predecessor has finished writing to disk. Each subagent is a single Agent invocation (not multiple parallel calls), receives the relevant artifact paths as its only input, and returns a structured report or a concrete edit plan that the main agent applies and then walks the user through.
+
+Inside `design` itself, the three structured sections must also be created **in order** — `decisions → components → tech-stack` — because components reference decisions and tech-stack references both. Do not parallelise them.
+
 ### Stage 1 — design
 
 Load [references/workflow/design.md](references/workflow/design.md).
@@ -103,6 +124,8 @@ Load [references/workflow/design.md](references/workflow/design.md).
 
 ### Stage 2 — adr
 
+**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the `decisions`, `components`, and `tech-stack` artifact paths plus the relevant RE refs as its input. Its job is to produce Nygard-form ADR blocks (Status / Context / Decision / Consequences) to be appended into the decisions markdown — it should return either the final ADR markdown or a concrete patch. Do not run it in parallel with `diagram` or `review`, and do not start it before `design` has all three sections in `in_review`. The main agent applies the subagent's output via Edit and then continues the user dialogue.
+
 Load [references/workflow/adr.md](references/workflow/adr.md).
 
 Take every load-bearing decision from `design` and record it in Michael Nygard ADR form: **Status / Context / Decision / Consequences**. Each ADR:
@@ -118,6 +141,8 @@ ADRs live inside the decisions artifact's markdown. They are not a separate sect
 
 ### Stage 3 — diagram
 
+**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the confirmed decisions / components / tech-stack artifacts as input. It produces the diagrams artifact markdown (C4 Context always, Container in heavy mode, plus sequence / data-flow as needed), every diagram inside a fenced `mermaid` block with a one-paragraph caption. It returns the markdown body for the main agent to write into the diagrams artifact. Run it **after** `adr` has finished and **not in parallel** with `review` — the review stage needs the diagrams to exist.
+
 Load [references/workflow/diagram.md](references/workflow/diagram.md).
 
 Create the diagrams artifact and fill it with Mermaid code:
@@ -130,6 +155,8 @@ Create the diagrams artifact and fill it with Mermaid code:
 Every diagram lives in a fenced ` ```mermaid ` block in `<id>.md`. Add a one-paragraph caption under each diagram explaining what it is showing and which RE drivers it answers to.
 
 ### Stage 4 — review
+
+**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with all four arch artifacts (`decisions`, `components`, `tech-stack`, `diagrams`) **and** the three RE artifacts as input. It runs scenario validation, constraint-compliance, and the traceability check in a clean context, then returns a verdict plus a list of items to fix. Do not spawn it in parallel with anything else, and do not start it before `diagram` has written its artifact. The main agent applies fixes (or routes back to `design` / `adr` / `diagram`) and only then runs `artifact.py approve`.
 
 Load [references/workflow/review.md](references/workflow/review.md).
 

@@ -64,6 +64,19 @@ Each stage has detailed behavior rules in `references/workflow/<stage>.md`. When
 
 The pipeline is **checkpoint-based**, not one-way. At any point, if the user disagrees or you realize a prior assumption was wrong, step back to an earlier stage and re-refine.
 
+### Subagent delegation (hybrid)
+
+Stages split between the **main agent** (which talks to the user) and isolated **subagents** (which work in a clean context window):
+
+| Stage | Runs in | Why |
+|-------|---------|-----|
+| 1. elicit | main | needs multi-turn dialogue with the user |
+| 2. analyze | **subagent** | pure analysis over a settled candidate set — a clean context catches more conflicts/gaps than the dialogue-laden main context |
+| 3. spec | main | drafting + user feedback loop, plus the only stage that writes to disk |
+| 4. review | **subagent** | pure verification over a settled draft — a clean context catches more SMART / downstream-fitness gaps |
+
+**Sequencing rule (mandatory):** the four stages have a hard order — `elicit → analyze → spec → review` — and the two subagent stages must each run *after* their predecessor finishes. **Never spawn analyze and review in parallel**, never spawn analyze before elicit has produced a candidate set, and never spawn review before spec has produced a draft. Each subagent is a single Agent invocation (not multiple parallel calls), receives the prior stage's output as its only input, and returns a structured report that the main agent then walks the user through.
+
 ### Stage 1 — elicit
 
 Load [references/workflow/elicit.md](references/workflow/elicit.md).
@@ -78,6 +91,8 @@ Load [references/workflow/elicit.md](references/workflow/elicit.md).
 Output of this stage: candidate requirements, candidate constraints, candidate quality attributes, and a list of open questions for later stages. Nothing is persisted to disk yet.
 
 ### Stage 2 — analyze
+
+**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the elicit output (candidate requirements, constraints, quality attributes, open questions) as its only input. Do not run it in parallel with anything else, and do not let it talk to the user — it returns a structured report (conflicts, gaps, infeasibility, decisions the user must make) that the main agent then walks the user through. The point is to give the analyzer a clean context window that is not polluted by the elicit dialogue.
 
 Load [references/workflow/analyze.md](references/workflow/analyze.md).
 
@@ -113,6 +128,8 @@ This is the first stage that **writes to disk**. Sequence, for each of the three
 Adaptive-depth rules for this stage are in `references/adaptive-depth.md`. In light mode, a compact User Story + Acceptance Criteria layout is fine; in heavy mode, follow the IEEE-830 sectioning built into the template.
 
 ### Stage 4 — review
+
+**Run this stage as a subagent.** Spawn a single `general-purpose` Agent with the three drafted artifacts (paths to the `.md` + `.meta.yaml` pairs) as its input. It runs the SMART check, the constraint-consistency check, and the downstream-fitness check in a clean context, then returns a verdict + a list of items to fix. The main agent applies fixes (or routes back to spec / analyze) and only then runs `artifact.py approve`. Do not spawn it in parallel with anything else, and do not start it before all three artifacts are in `in_review`.
 
 Load [references/workflow/review.md](references/workflow/review.md).
 
