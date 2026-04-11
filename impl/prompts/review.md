@@ -13,14 +13,14 @@
 
 ## 지시사항
 
-당신은 코드 리뷰 전문가입니다. 생성된 코드를 **Arch 결정 준수 여부**와 **클린 코드 원칙** 두 축으로 리뷰하세요. 자동 수정 가능한 이슈는 `refactor` 에이전트로 전달하고, Arch 계약 위반만 사용자에게 에스컬레이션하세요.
+시스템 프롬프트에 정의된 역할과 규칙을 따라 생성된 코드를 Arch 결정 준수 여부와 클린 코드 원칙 두 축으로 리뷰하세요. 자동 수정 가능한 이슈는 `refactor` 에이전트로 전달하고, Arch 계약 위반만 사용자에게 에스컬레이션합니다.
 
 ### Step 1: 구현 맵 기반 모듈 순회
 
-`implementation_map`의 각 항목에 대해 순서대로 리뷰합니다:
+`implementation_map`의 각 항목에 대해 순서대로 모듈을 순회하며 리뷰합니다.
 
 ```
-IM-001: COMP-001 → [module_path]
+IM-001: COMP-001 → <module_path>
   → Arch 준수 검증
   → 클린 코드 검증
   → 보안 기본 검증
@@ -28,50 +28,19 @@ IM-001: COMP-001 → [module_path]
 
 ### Step 2: Arch 결정 준수 검증
 
-각 모듈에 대해 다음을 검증하세요:
-
-**컴포넌트 경계 검증:**
-- [ ] 코드 모듈이 `COMP.responsibility`에 정의된 책임만 수행하는가
-- [ ] `COMP.dependencies`에 정의된 방향대로 import가 구성되었는가 (역방향 의존성 없는가)
-- [ ] `COMP.interfaces`에 정의된 모든 메서드가 구현되었는가
-- [ ] 인터페이스 시그니처(파라미터 타입, 반환 타입)가 Arch 정의와 일치하는가
-
-**아키텍처 패턴 검증:**
-- [ ] `AD.decision`에 명시된 패턴이 코드에 반영되었는가
-- [ ] 동일 패턴이 관련 모듈에 일관되게 적용되었는가
-
-**기술 스택 검증:**
-- [ ] `TS.choice`에 선정된 기술만 사용되었는가
-- [ ] `TS.constraint_ref`의 RE `hard` 제약이 코드에 반영되었는가
+시스템 프롬프트 **"리뷰 축 1: Arch 결정 준수 검증"** 표(컴포넌트 경계, 아키텍처 패턴, 기술 스택)에 따라 각 모듈이 `COMP.responsibility`/`COMP.dependencies`/`COMP.interfaces`, `AD.decision` 패턴, `TS.choice`/`TS.constraint_ref`를 준수하는지 검증합니다.
 
 ### Step 3: 클린 코드 원칙 검증
 
-**SOLID 원칙:**
-- [ ] SRP: 각 클래스/모듈이 하나의 변경 이유만 가지는가
-- [ ] OCP: 확장에 열려있고 수정에 닫혀있는 구조인가
-- [ ] LSP: 하위 타입이 상위 타입을 올바르게 대체하는가
-- [ ] ISP: 인터페이스가 클라이언트에 필요한 것만 노출하는가
-- [ ] DIP: 상위 모듈이 추상화에 의존하는가 (하위 모듈에 직접 의존하지 않는가)
-
-**코드 품질:**
-- [ ] 함수/변수 네이밍이 의도를 명확히 표현하는가
-- [ ] 함수 길이가 적정한가 (20줄 이하 권고)
-- [ ] 순환 복잡도가 과도하지 않은가 (함수당 10 이하 권고)
-- [ ] 코드 중복이 없는가 (DRY)
-- [ ] 네이밍 컨벤션이 프로젝트 전체에서 일관되는가
-- [ ] 기술 스택의 관용적 에러 처리를 따르는가
+시스템 프롬프트 **"리뷰 축 2: 클린 코드 원칙 검증"** 표(SOLID 원칙, 코드 품질)에 따라 SRP/OCP/LSP/ISP/DIP, 가독성, 복잡도, 중복, 네이밍 일관성, 에러 처리를 검증합니다.
 
 ### Step 4: 보안 기본 검증
 
-- [ ] SQL 인젝션 가능성이 없는가 (파라미터화된 쿼리 사용)
-- [ ] XSS 가능성이 없는가 (출력 이스케이핑)
-- [ ] 하드코딩된 자격증명이 없는가
-- [ ] 로그에 민감 정보가 노출되지 않는가
-- [ ] 외부 입력에 대한 검증이 적용되었는가
+시스템 프롬프트 **"리뷰 축 3: 보안 기본 검증"** 표(인젝션, 인증/인가, 민감 데이터, 입력 검증)에 따라 OWASP Top 10 수준의 코드 레벨 이슈를 탐지합니다.
 
 ### Step 5: 이슈 분류 및 판정
 
-발견된 이슈를 다음과 같이 분류하세요:
+발견된 이슈를 심각도별로 분류합니다:
 
 | 심각도 | 기준 | 처리 |
 |-------|------|------|
@@ -81,43 +50,27 @@ IM-001: COMP-001 → [module_path]
 | `low` | 네이밍, 스타일 이슈 | refactor 자동 수정 |
 | `info` | 개선 가능 영역 | 리포트에 기록만 |
 
-**판정 기준:**
-- `PASS`: critical/high/medium 이슈 없음
-- `FIX_REQUIRED`: high/medium 이슈 존재 (auto_fixable)
-- `ESCALATE`: critical 이슈 존재 (Arch 계약 위반)
+시스템 프롬프트 **"리뷰 프로세스 → 단계 5: 판정"** 기준으로 `PASS` / `FIX_REQUIRED` / `ESCALATE`를 결정합니다.
 
-### Step 6: 리뷰 리포트 작성
+### Step 6: 리뷰 리포트 작성 및 출력
+
+시스템 프롬프트 **"출력 형식"** 및 **"출력 프로토콜"**에 따라 리뷰 리포트를 `meta.json`/`body.md`에 기록합니다. 추가로 요약 섹션을 포함합니다:
 
 ```yaml
 review_report:
   summary:
-    total_modules: [수]
-    compliant_modules: [수]
-    issues_found: [수]
-    auto_fixable: [수]
-    escalations: [수]
-    
-  arch_compliance:
-    - component_ref: COMP-001
-      module_path: src/auth/
-      status: compliant
-      checks:
-        responsibility: pass
-        dependencies: pass
-        interfaces: pass
-        patterns: pass
-
-  clean_code_issues:
-    - location: "src/auth/handler.go:45-82"
-      principle: "SRP — 핸들러가 인증과 토큰 관리를 모두 수행"
-      severity: medium
-      suggestion: "토큰 관리 로직을 별도 서비스로 분리"
-      auto_fixable: true
-
-  security_issues: []
-
+    total_modules: <수>
+    compliant_modules: <수>
+    issues_found: <수>
+    auto_fixable: <수>
+    escalations: <수>
+  arch_compliance: [...]
+  clean_code_issues: [...]
+  security_issues: [...]
   verdict: PASS | FIX_REQUIRED | ESCALATE
 ```
+
+에스컬레이션이 있으면 시스템 프롬프트 **"에스컬레이션 조건"** 형식에 따라 먼저 제시합니다. 최종 판정은 출력 프로토콜의 `--verdict` 단계로 기록합니다.
 
 ## 주의사항
 
