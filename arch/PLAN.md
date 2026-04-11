@@ -268,7 +268,7 @@ RE:spec 산출물
 
 ### 1단계: `SKILL.md` 작성 (필수 진입점 + frontmatter)
 
-표준에서 메타데이터의 단일 출처는 `arch/SKILL.md`의 YAML frontmatter입니다. `skills.yaml`은 표준 사양에 존재하지 않으므로 사용하지 않습니다.
+표준에서 메타데이터의 단일 출처는 `arch/SKILL.md`의 YAML frontmatter입니다. `skills.yaml`은 표준 사양에 존재하지 않으므로 사용하지 않습니다. Claude Code Skill 표준(https://code.claude.com/docs/ko/skills)에 따라 frontmatter는 `name`과 `description`만 필수로 두고, 나머지 옵션 필드는 기본 동작으로 스킬 목적을 달성할 수 없음이 입증된 경우에만 추가합니다.
 
 **권장 frontmatter 초안**:
 
@@ -276,27 +276,17 @@ RE:spec 산출물
 ---
 name: arch
 description: RE 산출물(요구사항·제약·품질속성)을 입력으로 받아 아키텍처 결정·컴포넌트 구조·기술 스택·다이어그램(C4/Mermaid) 4섹션 산출물을 생성하고, scripts/artifact.py로 메타데이터·추적성을 관리한다. 새로운 시스템 설계, RE 산출물 갱신 후 아키텍처 재검토, ADR 기록, C4 다이어그램 생성이 필요할 때 사용.
-argument-hint: "[design|review|adr|diagram] [artifact-id]"
-allowed-tools: Read Write Edit Grep Glob Bash
-effort: high
-disable-model-invocation: true
-paths:
-  - "arch/**"
-  - "re/artifacts/**"
 ---
 ```
 
 **설계 원칙**:
 
+- **`name`**: 스킬 디렉토리명과 일치시켜 `arch`로 고정합니다. 표준에서 요구하는 두 필수 필드 중 하나입니다.
 - **`description` 작성 규칙 (자동 호출 품질 결정)**: 첫 200자 안에 반드시 다음 두 요소를 포함합니다.
   - *무엇을 하는가*: "RE 3섹션 → Arch 4섹션 산출물 생성"
   - *언제 사용하는가*: "신규 시스템 설계 / RE 산출물 갱신 후 아키텍처 재검토 / ADR·C4 다이어그램 작성 시"
   - 250자 경계에서 잘릴 수 있음을 가정하여 핵심 키워드를 앞에 배치합니다.
-- **`disable-model-invocation: true`**: Arch는 산출물 생성·갱신형 task이며, 근거 없이 자동 호출되면 기존 문서를 덮어쓸 위험이 있으므로 사용자가 명시적으로 호출하는 정책을 기본값으로 삼습니다.
-- **`allowed-tools`**: 스크립트 호출과 파일 IO가 필수이므로 Bash/Read/Write/Edit/Grep/Glob을 사전 승인합니다. (§5단계의 "스크립트 호출 강제" 참조)
-- **`effort: high`**: 깊은 트레이드오프 분석과 4단계 워크플로우를 포함하므로 기본 effort는 high로 둡니다. 경량 모드에서는 SKILL.md 본문의 분기 로직이 일부 단계를 스킵합니다(§4단계 적응적 깊이 매핑 참조).
-- **`paths`**: RE 산출물 또는 arch 디렉토리 변경 시에만 활성 후보로 노출되도록 제한하여, 무관한 컨텍스트에서의 오발화를 방지합니다.
-- **`argument-hint`**: 사용자가 `[design|review|adr|diagram]` 단계와 선택적 artifact-id를 넘길 수 있음을 명시합니다. SKILL.md 본문에서 `$ARGUMENTS` 치환자로 받아 분기합니다.
+- **그 외 옵션 필드(`argument-hint`, `allowed-tools`, `effort`, `model`, `disable-model-invocation`, `paths`, `hooks`, `context`, `agent` 등)는 기본값으로 두고 추가하지 않습니다.** 표준 동작으로 스킬이 동작 불가능하다는 점이 실제로 입증된 경우에만 해당 필드를 도입하고, 그 근거를 PLAN/SKILL 본문에 명시합니다.
 
 **SKILL.md 본문 구성 (500줄 이내)**:
 

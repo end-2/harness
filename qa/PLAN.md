@@ -349,7 +349,7 @@ qa:report
 
 ### 1단계: 스킬 엔트리포인트 정의 (`SKILL.md` + YAML frontmatter)
 
-Claude Code Skill 공식 표준에 따라 `qa/SKILL.md`를 엔트리포인트로 신설합니다. `skills.yaml`은 **사용하지 않으며**(표준 로더가 인식하지 못함), 모든 메타데이터는 Markdown 상단의 YAML frontmatter(`---` 블록)에 선언하고, 본문에는 파이프라인 흐름·호출 규칙·에스컬레이션 정책 요약·스크립트 커맨드 레퍼런스만 배치해 500줄 제한 내에서 유지합니다. 상세 설명(소비 매핑, 추적성 체인, 산출물 스키마, 메타데이터 상세, 프레임워크 관용구)은 `references/`로 이관하여 supporting files로 참조합니다.
+Claude Code Skill 공식 표준에 따라 `qa/SKILL.md`를 엔트리포인트로 신설합니다. `skills.yaml`은 **사용하지 않으며**(표준 로더가 인식하지 못함), 메타데이터는 Markdown 상단의 YAML frontmatter(`---` 블록)에 **필수 필드(`name`, `description`)만** 선언합니다. 본문에는 파이프라인 흐름·호출 규칙·에스컬레이션 정책 요약·스크립트 커맨드 레퍼런스만 배치해 500줄 제한 내에서 유지합니다. 상세 설명(소비 매핑, 추적성 체인, 산출물 스키마, 메타데이터 상세, 프레임워크 관용구)은 `references/`로 이관하여 supporting files로 참조합니다.
 
 #### 1-1. Frontmatter 명세
 
@@ -357,33 +357,6 @@ Claude Code Skill 공식 표준에 따라 `qa/SKILL.md`를 엔트리포인트로
 ---
 name: qa
 description: RE/Arch/Impl 산출물을 입력받아 테스트 전략·테스트 코드·RTM·품질 리포트를 자동 생성하고 요구사항 추적성을 검증합니다. 선행 산출물이 준비된 후 또는 테스트/품질 게이트 판정이 필요할 때 사용하세요.
-argument-hint: "[--mode light|heavy] [--target <path>]"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
-  - Bash(pytest:*)
-  - Bash(npx vitest:*)
-  - Bash(npx jest:*)
-  - Bash(go test:*)
-  - Bash(python ${CLAUDE_SKILL_DIR}/scripts/artifact.py:*)
-  - Bash(python ${CLAUDE_SKILL_DIR}/scripts/rtm.py:*)
-  - Bash(python ${CLAUDE_SKILL_DIR}/scripts/gate.py:*)
-model: claude-opus-4-6
-effort: high
-user-invocable: true
-disable-model-invocation: false
-paths:
-  - re/outputs/**
-  - arch/outputs/**
-  - impl/outputs/**
-  - qa/outputs/**
-hooks:
-  PostToolUse:
-    - match: "Bash(python ${CLAUDE_SKILL_DIR}/scripts/gate.py:*)"
-      run: "python ${CLAUDE_SKILL_DIR}/scripts/gate.py notify-if-escalated"
 ---
 ```
 
@@ -391,11 +364,7 @@ hooks:
 
 - `name`: 소문자/하이픈 규칙 준수(디렉토리명과 일치).
 - `description`: **what + when**을 모두 포함해 250자 제한 내에서 작성. 자동(모델) 호출 시 이 설명으로 Skill이 선택되므로 "언제 사용할지" 트리거가 반드시 포함되어야 함.
-- `argument-hint`: `$ARGUMENTS[0]`는 모드(light/heavy) 선택, `$ARGUMENTS[1]`는 대상 경로에 사용.
-- `allowed-tools`: 테스트 러너(`pytest`/`vitest`/`jest`/`go test`)와 `scripts/`의 파이썬 CLI만 Bash로 허용. 임의 셸 커맨드 실행 차단.
-- `user-invocable: true` + `disable-model-invocation: false`: `/qa` 명시 호출과 선행 스킬 완료 후 자동 연쇄 호출을 **모두 허용**. 선행 산출물이 미존재/구버전이면 본문 규칙에 따라 에러 후 종료.
-- `paths`: 메타데이터·산출물이 위치하는 디렉토리로 Read/Write 범위를 선언.
-- `hooks.PostToolUse`: `gate.py` 실행 후 `approval.state == escalated`인 경우 사용자에게 알림을 강제하여 Must 갭 에스컬레이션 원칙을 런타임에서 보장.
+- 그 외 선택 필드(`argument-hint`, `allowed-tools`, `context`, `agent`, `effort`, `model`, `hooks`, `paths`, `disable-model-invocation` 등)는 **기본값으로 두며**, 기본 동작으로 스킬 목적을 달성할 수 없는 구체적 사유가 있을 때에만 추가합니다.
 
 #### 1-2. 메타데이터 편집 차단(스크립트 경유 원칙의 런타임 강제)
 

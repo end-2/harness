@@ -224,32 +224,12 @@ re/
 
 ### 1단계: 스킬 메타데이터 정의 (`SKILL.md` YAML frontmatter)
 
-`SKILL.md` 최상단에 표준 YAML frontmatter를 둔다. `description`은 250자 이내로 "무엇을 / 언제" 정보를 front-load하여, 모델의 자동 선택 정확도를 높인다. `context: fork` + `agent: Explore` 조합으로 초기 도출·분석 단계에서 기존 자산(문서, 코드, 이전 산출물)을 격리된 컨텍스트에서 탐색할 수 있도록 한다.
+`SKILL.md` 최상단에 표준 YAML frontmatter를 둔다. Claude Code Skill 표준에 따라 frontmatter는 최소한으로 유지하며, `name`과 `description`만 기본으로 포함한다. 그 외 선택 필드는 기본 동작으로 스킬의 목적을 달성할 수 없음이 명백히 입증될 때에 한해 도입한다. `description`은 250자 이내로 "무엇을 / 언제" 정보를 front-load하여, 모델의 자동 선택 정확도를 높인다.
 
 ```yaml
 ---
 name: re
 description: 사용자와의 대화형 상호작용을 통해 모호한 요청을 기능/비기능 요구사항, 제약 조건, 품질 속성 우선순위 세 섹션으로 점진적으로 도출·분석·명세·검증한다. 신규 프로젝트 착수, 요구사항 재정비, arch/qa/impl 후속 스킬 투입 직전에 사용.
-argument-hint: "<자연어 요청 또는 기존 요구사항 파일 경로>"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
-  - Bash
-effort: high
-model: claude-opus-4-6
-context: fork
-agent: Explore
-user-invocable: true
-disable-model-invocation: false
-paths:
-  - re/**
-  - <산출물 저장 경로>/**
-hooks:
-  pre-request-review:
-    - python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate $ARTIFACT_ID
 ---
 ```
 
@@ -257,13 +237,7 @@ hooks:
 
 - **`name: re`**: 소문자/하이픈, 64자 이하 표준 준수.
 - **`description`**: "무엇을"(세 섹션 산출물 도출·분석·명세·검증)과 "언제"(신규 착수, 재정비, arch/qa/impl 투입 직전)를 함께 명시. 한국어 기준 약 170자.
-- **`argument-hint`**: 슬래시 커맨드 사용자에게 입력 형식을 힌트로 제공.
-- **`allowed-tools`**: 도구 화이트리스트. 대화형 스킬 특성상 `Read`/`Write`/`Edit`/`Grep`/`Glob`/`Bash`만 허용. 네트워크 계열 도구는 제외.
-- **`effort: high`, `model: claude-opus-4-6`**: `analyze`/`review` 단계의 추론 깊이를 고려한 고정 값. 필요 시 `max`로 상향 가능.
-- **`context: fork` + `agent: Explore`**: 탐색형 스킬에 권장되는 조합. `elicit`과 `analyze` 단계에서 기존 자산을 읽어 암묵적 제약을 도출할 때 유용.
-- **`user-invocable: true`, `disable-model-invocation: false`**: 슬래시 커맨드 직접 호출과 모델 자동 선택을 모두 허용. 단, `description`의 front-loading으로 모든 코딩 요청에 자동 투입되지 않도록 트리거를 정밀화.
-- **`paths`**: 스킬의 쓰기 범위를 `re/**`와 산출물 저장 경로로 강제 제한하여, 의도치 않은 파일 수정 방지.
-- **`hooks.pre-request-review`**: `request-review` 상태 전이 직전 스키마 검증을 자동 호출하여, 불완전한 산출물이 사용자 리뷰 단계로 넘어가는 것을 차단.
+- **그 외 선택 필드**(`argument-hint`, `allowed-tools`, `context`, `agent`, `effort`, `model`, `hooks`, `paths`, `disable-model-invocation` 등): 기본값으로 스킬의 목적을 달성할 수 없음이 명확히 입증되는 경우에만 추가한다. 기본 정책상 추가하지 않는다.
 
 본문에서는 `$ARGUMENTS`로 사용자 초기 요청을 수신하고, `${CLAUDE_SKILL_DIR}`로 스킬 경로를 치환한다. 예:
 

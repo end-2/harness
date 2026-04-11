@@ -18,7 +18,7 @@
 
 본 스킬은 [Claude Code Skill 공식 포맷](https://code.claude.com/docs/ko/skills)을 준수합니다.
 
-- 엔트리 포인트는 `orch/SKILL.md` 단일 파일이며, YAML frontmatter를 포함합니다.
+- 엔트리 포인트는 `orch/SKILL.md` 단일 파일이며, 표준 규약대로 `name`/`description`만 담은 최소 YAML frontmatter를 포함합니다.
 - SKILL.md 본문은 500줄 이하로 유지하고, 상세 설계·프롬프트·스키마·파이프라인 정의는 `references/` 하위 파일로 분리하여 온디맨드 로드됩니다.
 - 템플릿(문서 골격, 메타데이터 초기값)은 `assets/templates/`에 위치합니다.
 - 스크립트는 `scripts/`에 두고 SKILL.md에서 "실행하되 로드하지 않음" 규약으로 참조합니다.
@@ -31,40 +31,13 @@
 ---
 name: orch
 description: Orchestrates the full SDLC skill suite (ex, re, arch, impl, qa, sec, devops) as a single entry point. Use when the user wants to run a multi-skill pipeline, resume a prior run, or route a natural-language request to the right skill(s). Spawns subagents per step, relays dialogue, and persists per-run artifacts.
-argument-hint: "<자연어 요청 | resume | status | config ...>"
-context: fork
-agent: general-purpose
-model: claude-opus-4-6
-effort: high
-user-invocable: true
-allowed-tools:
-  - Task
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - EnterWorktree
-  - ExitWorktree
-paths:
-  - harness-output/**
-  - ${CLAUDE_SKILL_DIR}/references/**
-  - ${CLAUDE_SKILL_DIR}/assets/**
-  - ${CLAUDE_SKILL_DIR}/scripts/**
-hooks:
-  post-complete:
-    - bash: ${CLAUDE_SKILL_DIR}/scripts/pipeline_state.py render --run "$RUN_ID"
 ---
 ```
 
 **frontmatter 필드 근거**
-- `context: fork` — heavy 파이프라인 실행 시 부모 세션 컨텍스트 오염을 방지 (배치/오케스트레이션 스킬 권고).
-- `agent: general-purpose` — dispatch 라우팅에 자유도가 필요.
-- `model` / `effort: high` — 라우팅 판단과 파이프라인 계획 수립에 고수준 추론 필요.
-- `allowed-tools` — `Task`(서브에이전트 스폰), `Bash`(스크립트 실행), 파일 I/O 및 worktree 격리 도구 전부 선언.
-- `paths` — 로더가 사전에 인지해야 할 파일 경로 범위 명시.
-- `hooks.post-complete` — 파이프라인 종료 시 `project-structure.md` / `release-note.md` 생성 및 `current-run.md` 갱신을 harness가 자동 트리거.
+- `name: orch` — 스킬 식별자 (필수).
+- `description` — 호출 트리거가 되는 자연어 설명 (필수). 라우팅 키워드(파이프라인/resume/status/config)를 포함해 모델이 적절히 디스패치할 수 있도록 합니다.
+- 그 외 선택 필드(`argument-hint`, `allowed-tools`, `context`, `agent`, `model`, `effort`, `hooks`, `paths`, `disable-model-invocation` 등)는 기본값으로 두고, 기본 동작으로 목적을 달성할 수 없는 구체적인 사유가 생긴 경우에만 추가합니다.
 
 ### SKILL.md 본문 상단 패턴
 

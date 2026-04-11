@@ -283,34 +283,20 @@ devops/
 
 ### `devops/SKILL.md` 최상단 frontmatter
 
-상위 `devops/SKILL.md`의 진입부에는 아래와 같은 YAML frontmatter를 배치합니다. `description`은 250자 이내로 전방에 "무엇을 하는가 + 언제 사용하는가"를 배치하여 자동 호출 판별에 활용되도록 하되, `disable-model-invocation: true`를 통해 실제 기동은 사용자 명시 호출에만 허용합니다.
+상위 `devops/SKILL.md`의 진입부에는 아래와 같은 최소 YAML frontmatter를 배치합니다. Claude Code Skill 표준에 따라 `name`과 `description`만 필수이며, `description`은 250자 이내로 전방에 "무엇을 하는가 + 언제 사용하는가"를 배치하여 자동 호출 판별에 활용되도록 합니다.
 
 ```yaml
 ---
 name: devops
 description: Generate CI/CD pipelines, IaC modules, observability configuration (SLO/monitoring/logging/tracing), and operational runbooks from upstream arch/impl/re artifacts. Use after arch and impl skills finalized component structure and code structure. Integrates deploy and observe into a single SLO-driven feedback loop.
-argument-hint: "[mode: light|heavy]"
-disable-model-invocation: true
-effort: high
-allowed-tools: Read Write Edit Bash Grep Glob
-paths:
-  - "arch/**"
-  - "impl/**"
-  - "re/**"
-hooks:
-  PostToolUse:
-    - "${CLAUDE_SKILL_DIR}/scripts/validate_all.py --changed"
-  Stop:
-    - "${CLAUDE_SKILL_DIR}/scripts/validate_all.py --all"
 ---
 ```
 
 - `description`은 250자 컷오프를 고려하여 핵심 키워드(CI/CD, IaC, observability, runbooks, SLO feedback loop)를 전방 배치
-- `paths`로 선행 산출물이 존재하는 리포지토리에서만 활성화되도록 범위 제한
-- `hooks`는 `scripts/artifact.py validate` 계통을 `PostToolUse`/`Stop`에 연결하여 에이전트가 `.meta.yaml`을 직접 편집하는 규칙 위반을 차단
 - 경량/중량 모드는 `$ARGUMENTS`(또는 `$1`)로 받아 SKILL.md 본문에서 분기
 - 모든 스크립트 호출은 `${CLAUDE_SKILL_DIR}/scripts/artifact.py ...` 형태로 통일
 - 선행 스킬 산출물 존재 확인은 SKILL.md 내 `` !`ls arch/artifacts` ``, `` !`ls impl/artifacts` `` 등 동적 컨텍스트 주입으로 호출 시점에 자동 수행
+- 그 외 선택 필드(`argument-hint`, `allowed-tools`, `context`, `agent`, `effort`, `model`, `hooks`, `paths`, `disable-model-invocation` 등)는 기본값으로 두며, 기본 동작으로 스킬 목적을 달성할 수 없는 구체적 사유가 있을 때에만 추가합니다
 
 각 서브스킬(`sub-skills/<name>/SKILL.md`)도 자체 frontmatter를 가지며, 파괴적 동작이 없는 분석 단계(`slo`, `monitor`, `log`, `incident`, `review`)는 `disable-model-invocation: false`, 배포 결정에 영향을 주는 단계(`iac`, `pipeline`, `strategy`)와 실제 인프라 변경(`apply`)은 `disable-model-invocation: true`로 차등 적용합니다.
 
