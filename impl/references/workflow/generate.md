@@ -49,7 +49,7 @@ Create the four Impl sections in order. Each section is a metadata + markdown pa
 For each `ARCH-COMP-*`, create one `IM-xxx` entry with `component_ref`, `module_path`, `entry_point`, `internal_structure` (2–3 level tree), and `interfaces_implemented`. Link upstream to the Arch component:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-map-id> --upstream ARCH-COMP-001
+python ${SKILL_DIR}/scripts/artifact.py link <impl-map-id> --upstream ARCH-COMP-001
 ```
 
 ### 2. Code Structure

@@ -13,7 +13,7 @@ The user is the only stakeholder. RE captured *requirements*, but it deliberatel
 
 ## Current state (injected at load)
 
-!`python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate`
+!`python ${SKILL_DIR}/scripts/artifact.py validate`
 
 The command above lists existing arch artifacts, their phase, approval state, and traceability integrity. Read it before deciding whether this run is a fresh start or a continuation of an in-progress design.
 
@@ -97,7 +97,7 @@ Therefore **never spawn these subagents in parallel**, and never start one befor
 Before spawning any subagent, the main agent allocates the report path:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+python ${SKILL_DIR}/scripts/artifact.py report path \
     --kind <adr-draft|diagram-draft|review> --stage <adr|diagram|review> \
     --target <artifact-id> [--target ...]
 ```
@@ -121,16 +121,16 @@ Load [references/workflow/design.md](references/workflow/design.md).
 
 1. Create the artifact pair from templates:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section decisions
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section components
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section tech-stack
+   python ${SKILL_DIR}/scripts/artifact.py init --section decisions
+   python ${SKILL_DIR}/scripts/artifact.py init --section components
+   python ${SKILL_DIR}/scripts/artifact.py init --section tech-stack
    ```
 2. Fill in the Markdown body by editing only the `.md` file — never touch `.meta.yaml` with Edit/Write.
 3. Update structured state through the script:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link         <id> --upstream RE-QA-001
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
+   python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
+   python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream RE-QA-001
+   python ${SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
    ```
 4. Show each draft, collect feedback, revise, and loop.
 
@@ -178,12 +178,12 @@ This stage is the bridge back to RE. It does three things:
 2. **Constraint compliance** — every `hard` constraint must be visibly satisfied by some decision or component. Every `negotiable` constraint that was relaxed must have a recorded justification.
 3. **Traceability check** — every FR / NFR must map to at least one component, every decision must cite at least one RE ref, every tech stack entry must cite a decision or a constraint. Run `validate` one more time:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate
+   python ${SKILL_DIR}/scripts/artifact.py validate
    ```
 
 When the user approves, move each artifact to `approved`:
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <id> --approver <user> --notes "..."
+python ${SKILL_DIR}/scripts/artifact.py approve <id> --approver <user> --notes "..."
 ```
 
 Once decisions, components, tech-stack, and diagrams are all `approved`, Arch is done. Point the user at the next skill (`impl`, `qa`, `security`, `deployment`, `operation`) and stop.

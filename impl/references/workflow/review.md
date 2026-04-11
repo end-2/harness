@@ -102,7 +102,7 @@ Classification drives routing (applied by the main agent after reading the repor
 Before writing the report body, run:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate
+python ${SKILL_DIR}/scripts/artifact.py validate
 ```
 
 and ensure there are no schema or traceability errors. A validation failure is itself a review finding (add an item with `classification: traceability_gap`).
@@ -112,7 +112,7 @@ and ensure there are no schema or traceability errors. A validation failure is i
 Before returning, validate the report itself:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report validate <report_id>
+python ${SKILL_DIR}/scripts/artifact.py report validate <report_id>
 ```
 
 Return to the main agent only the `report_id`, `verdict`, and `summary` — never the full body. The main agent reads the body via `artifact.py report show <report_id>`, routes the issue list, and — after the `refactor` loop settles — uses `artifact.py approve` to finalise the four Impl sections.

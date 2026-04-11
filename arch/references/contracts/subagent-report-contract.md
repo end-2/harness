@@ -110,7 +110,7 @@ When spawning a subagent stage, the main agent:
 
 1. Allocates a fresh report path:
    ```bash
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+   python ${SKILL_DIR}/scripts/artifact.py report path \
        --kind review --stage review \
        --target ARCH-DEC-001 --target ARCH-COMP-001 \
        --target ARCH-TECH-001 --target ARCH-DIAG-001

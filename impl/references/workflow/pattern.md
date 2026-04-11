@@ -11,7 +11,7 @@ Evaluate pattern-application opportunities in the code written by `generate`, ap
 If `ARCH-DEC-*` explicitly names a pattern (e.g. "hexagonal ports-and-adapters", "repository per aggregate", "event sourcing for the orders service"), that pattern **must** be visible in the code. Apply it mechanically. Record the application as an IDR that cites the ADR:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
+python ${SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
 ```
 
 If applying the pattern is impossible in the chosen stack, this is an Arch-contract conflict — escalate instead of silently skipping.

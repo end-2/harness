@@ -45,7 +45,7 @@ Verify:
 Run:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate
+python ${SKILL_DIR}/scripts/artifact.py validate
 ```
 
 This checks schema compliance, bidirectional `upstream_refs` / `downstream_refs` integrity, phase and approval states, and that every `document_path` exists. Do not proceed while there are errors.
@@ -118,9 +118,9 @@ Bullet list of items only the user can resolve (mirrors `items[]` with `classifi
 The review subagent **never** calls `artifact.py approve`. When its report comes back with `verdict: pass` (or `at_risk` after the main agent has fixed the auto-fixable items and the user has accepted the rest), the main agent runs:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <RE-REQ-id> --approver <user> --notes "…"
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <RE-CON-id> --approver <user> --notes "…"
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <RE-QA-id>  --approver <user> --notes "…"
+python ${SKILL_DIR}/scripts/artifact.py approve <RE-REQ-id> --approver <user> --notes "…"
+python ${SKILL_DIR}/scripts/artifact.py approve <RE-CON-id> --approver <user> --notes "…"
+python ${SKILL_DIR}/scripts/artifact.py approve <RE-QA-id>  --approver <user> --notes "…"
 ```
 
 The script rejects approval unless the artifact is in `in_review`. If an artifact slipped back to `revising`, the main agent transitions it to `in_review` first, then approves.

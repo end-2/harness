@@ -95,7 +95,7 @@ When spawning a subagent stage, the main agent:
 
 1. Allocates a fresh report path:
    ```bash
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+   python ${SKILL_DIR}/scripts/artifact.py report path \
        --kind analyze --stage analyze \
        --target RE-REQ-001 --target RE-CON-001 --target RE-QA-001
    ```

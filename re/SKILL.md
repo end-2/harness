@@ -11,7 +11,7 @@ The user is the only stakeholder. Their input will be incomplete and ambiguous, 
 
 ## Current state (injected at load)
 
-!`python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate`
+!`python ${SKILL_DIR}/scripts/artifact.py validate`
 
 The command above lists existing artifacts, their phase, approval state, and traceability integrity. Read it before deciding whether this run is a fresh start or a continuation of an in-progress conversation.
 
@@ -82,7 +82,7 @@ Stages split between the **main agent** (which talks to the user) and isolated *
 Before spawning any subagent, the main agent allocates the report path:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+python ${SKILL_DIR}/scripts/artifact.py report path \
     --kind <analyze|review|spec-review> --stage <analyze|review> \
     --target <artifact-id> [--target ...]
 ```
@@ -123,17 +123,17 @@ This is the first stage that **writes to disk**. Sequence, for each of the three
 
 1. Create the artifact pair from templates:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section requirements
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section constraints
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section quality-attributes
+   python ${SKILL_DIR}/scripts/artifact.py init --section requirements
+   python ${SKILL_DIR}/scripts/artifact.py init --section constraints
+   python ${SKILL_DIR}/scripts/artifact.py init --section quality-attributes
    ```
    Each call copies a `*.md.tmpl` + `*.meta.yaml.tmpl` from `assets/templates/` into the project's artifact directory and returns the generated `artifact_id`.
 2. Fill in the Markdown body by editing only the `.md` file — never touch `.meta.yaml` with Edit/Write.
 3. Update structured state through the script:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link         <id> --upstream user-prompt
+   python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
+   python ${SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
+   python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream user-prompt
    ```
 4. Show the draft to the user, collect feedback, revise, and loop until they are satisfied with that section.
 
@@ -149,10 +149,10 @@ Load [references/workflow/review.md](references/workflow/review.md).
 - Check constraint mutual consistency and requirement-constraint alignment.
 - Check that every quality attribute has a measurable target and an explicit trade-off note.
 - Run the **downstream fitness check** described in [references/contracts/downstream-contract.md](references/contracts/downstream-contract.md): is there enough information for `arch` to derive drivers, for `qa` to derive test strategy, for `security` to derive a threat model?
-- Run `python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate` one more time to confirm schema and traceability are clean.
+- Run `python ${SKILL_DIR}/scripts/artifact.py validate` one more time to confirm schema and traceability are clean.
 - Escalate anything you cannot decide alone. When the user approves:
   ```
-  python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <id> --approver <user> --notes "..."
+  python ${SKILL_DIR}/scripts/artifact.py approve <id> --approver <user> --notes "..."
   ```
   This transitions the artifact to `approved` and records the history.
 

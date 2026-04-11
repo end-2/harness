@@ -80,7 +80,7 @@ superseded → (terminal)
 
 ## Validation
 
-Run `python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate` to check:
+Run `python ${SKILL_DIR}/scripts/artifact.py validate` to check:
 
 1. Every required field is present.
 2. Enums (`phase`, `section`, `approval.state`) hold legal values.

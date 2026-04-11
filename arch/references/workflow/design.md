@@ -46,11 +46,11 @@ Work one section at a time. Finish decisions before components, finish component
 4. List the alternatives considered honestly. Two good alternatives per decision is usually the right amount; listing every possibility is noise.
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section decisions
+python ${SKILL_DIR}/scripts/artifact.py init --section decisions
 # fill in the .md
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-progress <id> --completed 0 --total <n>
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link         <id> --upstream RE-QA-001
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
+python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed 0 --total <n>
+python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream RE-QA-001
+python ${SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
 ```
 
 ### Components draft
@@ -62,10 +62,10 @@ python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
 5. Dependencies are component-to-component only. "Depends on Postgres" is not a dependency — Postgres appears as a component (`type: store`) or as a line item in the tech stack.
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section components
+python ${SKILL_DIR}/scripts/artifact.py init --section components
 # fill in the .md, then:
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <id> --upstream <decisions-id>
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
+python ${SKILL_DIR}/scripts/artifact.py link <id> --upstream <decisions-id>
+python ${SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
 ```
 
 ### Tech-stack draft
@@ -76,10 +76,10 @@ python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
 4. Do not invent operational requirements that contradict the user's stated operational maturity. If the team has never run Kafka, picking Kafka is a decision you must surface to the user with eyes open, not a silent assumption.
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section tech-stack
+python ${SKILL_DIR}/scripts/artifact.py init --section tech-stack
 # fill in the .md, then:
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <id> --upstream <decisions-id>
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
+python ${SKILL_DIR}/scripts/artifact.py link <id> --upstream <decisions-id>
+python ${SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
 ```
 
 ## Iteration with the user

@@ -138,7 +138,7 @@ When spawning a subagent stage, the main agent:
 
 1. Allocates a fresh report path:
    ```bash
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+   python ${SKILL_DIR}/scripts/artifact.py report path \
        --kind review --stage review --scope all
    ```
    This prints the JSON `{report_id, path}` and pre-writes a stub with the required frontmatter skeleton.

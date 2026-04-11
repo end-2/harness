@@ -36,7 +36,7 @@ For `negotiable` constraints that were relaxed, record a one-line justification.
 Run the script:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate
+python ${SKILL_DIR}/scripts/artifact.py validate
 ```
 
 Then verify by hand:
@@ -86,10 +86,10 @@ Anything the user must explicitly accept before approval. This is the important 
 The review subagent **never** calls `artifact.py approve`. When its report comes back with `verdict: pass` (or `at_risk` after the user has explicitly accepted the risks), the main agent runs:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-DEC-001  --approver <user> --notes "..."
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-COMP-001 --approver <user> --notes "..."
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-TECH-001 --approver <user> --notes "..."
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve ARCH-DIAG-001 --approver <user> --notes "..."
+python ${SKILL_DIR}/scripts/artifact.py approve ARCH-DEC-001  --approver <user> --notes "..."
+python ${SKILL_DIR}/scripts/artifact.py approve ARCH-COMP-001 --approver <user> --notes "..."
+python ${SKILL_DIR}/scripts/artifact.py approve ARCH-TECH-001 --approver <user> --notes "..."
+python ${SKILL_DIR}/scripts/artifact.py approve ARCH-DIAG-001 --approver <user> --notes "..."
 ```
 
 Each approval requires the artifact to already be in `in_review`. If any is still in `draft`, the main agent moves it to `in_review` first — or, more likely, loops back and finishes it.

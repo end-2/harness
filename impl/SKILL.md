@@ -11,7 +11,7 @@ If RE answered **"what are we building?"** and Arch answered **"how is it struct
 
 ## Current state (injected at load)
 
-!`python ${CLAUDE_SKILL_DIR}/scripts/artifact.py validate`
+!`python ${SKILL_DIR}/scripts/artifact.py validate`
 
 The command above lists existing impl artifacts, their phase, approval state, and traceability integrity. Read it before deciding whether this run is a fresh start, a continuation of in-progress generation, or a re-review / refactor pass over already-generated code.
 
@@ -95,7 +95,7 @@ Impl splits stages between the **main agent** (which talks to the user and write
 Before spawning any subagent, the main agent allocates the report path:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py report path \
+python ${SKILL_DIR}/scripts/artifact.py report path \
     --kind <review|refactor> --stage <review|refactor> --scope all
 ```
 
@@ -116,17 +116,17 @@ Load [references/workflow/generate.md](references/workflow/generate.md).
 
 1. Create the artifact pair from templates:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section implementation-map
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section code-structure
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section implementation-decisions
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section implementation-guide
+   python ${SKILL_DIR}/scripts/artifact.py init --section implementation-map
+   python ${SKILL_DIR}/scripts/artifact.py init --section code-structure
+   python ${SKILL_DIR}/scripts/artifact.py init --section implementation-decisions
+   python ${SKILL_DIR}/scripts/artifact.py init --section implementation-guide
    ```
 2. Fill in the Markdown body by editing only the `.md` file — never touch `.meta.yaml` with Edit/Write.
 3. Update structured state through the script:
    ```
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link         <id> --upstream ARCH-COMP-001
-   python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
+   python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
+   python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream ARCH-COMP-001
+   python ${SKILL_DIR}/scripts/artifact.py set-phase    <id> in_review
    ```
 4. Write the actual source files under the project tree with Write/Edit. Source files are not tracked by `artifact.py`.
 
@@ -141,7 +141,7 @@ Load [references/workflow/pattern.md](references/workflow/pattern.md).
 - Over-application is a failure mode: the absence of a pattern is often the right call. Warn in the IDR when you deliberately chose *not* to apply one.
 - Update the Implementation Decisions section after every pattern application:
   ```
-  python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
+  python ${SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
   ```
 
 No user escalation in this stage — Arch-mandated patterns must be applied, and discretionary patterns are recorded with their rationale.
@@ -175,7 +175,7 @@ Load [references/workflow/refactor.md](references/workflow/refactor.md).
 
 When the review report is clean and the user approves, transition each Impl artifact to `approved`:
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py approve <id> --approver <user> --notes "..."
+python ${SKILL_DIR}/scripts/artifact.py approve <id> --approver <user> --notes "..."
 ```
 
 Once `IMPL-MAP-*`, `IMPL-CODE-*`, `IMPL-IDR-*`, and `IMPL-GUIDE-*` are all `approved`, Impl is done. Point the user at the next skill (`qa`, `security`, `deployment`, `operation`, `management`) and stop.

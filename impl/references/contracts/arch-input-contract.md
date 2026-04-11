@@ -12,7 +12,7 @@ How the Impl skill reads the four Arch artifacts and turns each field into a cod
   - `ARCH-DIAG-*` — diagrams
 - Every one must be in phase `approved`. If any is in `draft` / `in_review` / `revising`, stop and tell the user — Impl must not run on unstable input.
 
-Use `python ${CLAUDE_SKILL_DIR}/../arch/scripts/artifact.py list` (or read the metadata files directly) to confirm. If only the Impl `artifact.py` is available locally, read the Arch YAML files with a small script that walks `./artifacts/arch/*.meta.yaml`.
+Use `python ${SKILL_DIR}/../arch/scripts/artifact.py list` (or read the metadata files directly) to confirm. If only the Impl `artifact.py` is available locally, read the Arch YAML files with a small script that walks `./artifacts/arch/*.meta.yaml`.
 
 ## ARCH-DEC-* → code shape
 
@@ -67,13 +67,13 @@ Version selection: pick the latest stable release that satisfies every `constrai
 Every Implementation Map entry must link upstream to the Arch component:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-map-id> --upstream ARCH-COMP-001
+python ${SKILL_DIR}/scripts/artifact.py link <impl-map-id> --upstream ARCH-COMP-001
 ```
 
 Every IDR that applies a pattern must link upstream to the ADR (if mandatory) or at least to the component whose code it affects:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
+python ${SKILL_DIR}/scripts/artifact.py link <impl-idr-id> --upstream ARCH-DEC-002
 ```
 
 Every `external_dependencies` row in Code Structure must carry a `tech_stack_ref` back to `ARCH-TECH-*`.

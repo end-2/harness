@@ -56,7 +56,7 @@ deployment will fail its run if: `build_config` is missing a build file for a ru
 Before approving, for each downstream skill the Impl artifacts will feed, add a downstream ref:
 
 ```
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link <impl-map-id> --downstream QA-STRATEGY-001
+python ${SKILL_DIR}/scripts/artifact.py link <impl-map-id> --downstream QA-STRATEGY-001
 ```
 
 If the downstream artifact does not exist yet, leave the downstream_ref list empty — the downstream skill will back-fill when it runs. What matters at Impl approval time is that the upstream refs (back to Arch and RE) are complete.

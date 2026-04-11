@@ -67,7 +67,7 @@ REQUIRED_META_FIELDS = (
 
 
 def skill_dir() -> Path:
-    env = os.environ.get("CLAUDE_SKILL_DIR")
+    env = os.environ.get("SKILL_DIR")
     if env:
         return Path(env)
     return Path(__file__).resolve().parent.parent

@@ -19,7 +19,7 @@ Follow this exact sequence for each of the three sections. Do them one section a
 ### Step 1 — init
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py init --section requirements
+python ${SKILL_DIR}/scripts/artifact.py init --section requirements
 ```
 
 This copies the template pair into the artifact directory and assigns an `artifact_id`. Capture the returned id; you will reuse it in every subsequent command for this section.
@@ -41,8 +41,8 @@ For NFRs, the acceptance criterion must be a number with a unit, not an adjectiv
 Once the markdown table has real rows, record progress and traceability:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-progress <id> --completed 0 --total <row-count>
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py link         <id> --upstream "user-prompt:$ARGUMENTS"
+python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed 0 --total <row-count>
+python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream "user-prompt:$ARGUMENTS"
 ```
 
 As the user confirms items, bump `--completed`. This gives both you and the user a visible progress signal.
@@ -56,7 +56,7 @@ Show the draft. Ask for specific feedback: "anything wrong with FR-003?", "is th
 ### Step 5 — transition to in_review
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
+python ${SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
 ```
 
 This marks the section as awaiting review. Keep it in `in_review` until the `review` stage approves it.
