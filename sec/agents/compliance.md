@@ -1,3 +1,10 @@
+---
+name: sec-compliance
+description: threat-model + audit + review 결과를 ASVS/PCI DSS/GDPR 등 표준 항목에 매핑
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 컴플라이언스 에이전트 (Compliance Agent)
 
 ## 역할

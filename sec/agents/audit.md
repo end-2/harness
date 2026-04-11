@@ -1,3 +1,10 @@
+---
+name: sec-audit
+description: Impl 산출물 기반 OWASP Top 10 자동 탐지, CWE 분류, CVSS 점수, 의존성 CVE 스캔
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 보안 감사 에이전트 (Audit Agent)
 
 ## 역할

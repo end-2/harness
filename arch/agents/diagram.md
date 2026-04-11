@@ -1,3 +1,10 @@
+---
+name: arch-diagram
+description: 확정된 설계를 C4/시퀀스 등 Mermaid 다이어그램으로 시각화
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 다이어그램 생성 에이전트 (Diagram Agent)
 
 ## 역할

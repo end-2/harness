@@ -1,3 +1,10 @@
+---
+name: devops-slo
+description: RE 품질 속성 메트릭 → SLI/SLO 변환, 전체 파이프라인의 관찰 기준점 수립
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # SLO 정의 에이전트 (SLO Agent)
 
 ## 역할

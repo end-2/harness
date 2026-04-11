@@ -1,3 +1,10 @@
+---
+name: devops-monitor
+description: SLO → 알림 규칙 / 대시보드 / 분산 추적 자동 생성
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 모니터링 에이전트 (Monitor Agent)
 
 ## 역할

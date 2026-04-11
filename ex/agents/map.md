@@ -1,3 +1,10 @@
+---
+name: ex-map
+description: scan+detect+analyze 결과를 토큰 효율적으로 4섹션 최종 산출물로 통합
+tools: Read, Glob, Grep, Bash
+model: sonnet
+---
+
 # 컨텍스트 맵 생성 에이전트 (Map Agent)
 
 ## 역할

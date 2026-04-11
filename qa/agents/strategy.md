@@ -1,3 +1,10 @@
+---
+name: qa-strategy
+description: RE/Arch/Impl 산출물 분석 기반 테스트 범위·피라미드·우선순위·NFR 계획 수립
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 테스트 전략 에이전트 (Strategy Agent)
 
 ## 역할

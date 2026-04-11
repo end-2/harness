@@ -1,3 +1,10 @@
+---
+name: ex-analyze
+description: import/require 분석으로 의존성 그래프·컴포넌트 경계·아키텍처 스타일 추론
+tools: Read, Glob, Grep, Bash
+model: sonnet
+---
+
 # 의존성/아키텍처 분석 에이전트 (Analyze Agent)
 
 ## 역할

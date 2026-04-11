@@ -1,3 +1,10 @@
+---
+name: sec-review
+description: 위협 모델 대응 전략의 코드 구현 검증, 인증/인가/입력 검증/세션 관리 심층 리뷰
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 보안 코드 리뷰 에이전트 (Security Review Agent)
 
 ## 역할

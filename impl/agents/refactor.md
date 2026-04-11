@@ -1,3 +1,10 @@
+---
+name: impl-refactor
+description: 코드 스멜 탐지 및 Arch 경계를 유지하는 안전한 리팩터링
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 리팩토링 에이전트 (Refactor Agent)
 
 ## 역할

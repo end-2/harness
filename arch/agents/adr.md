@@ -1,3 +1,10 @@
+---
+name: arch-adr
+description: design의 주요 결정을 RE 참조 포함 ADR로 기록
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # ADR 생성 에이전트 (ADR Agent)
 
 ## 역할

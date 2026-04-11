@@ -1,3 +1,10 @@
+---
+name: orch-pipeline
+description: DAG 기반 워크플로 실행, 스킬 간 흐름 제어(순차/병렬/조건부), 에이전트 스폰
+tools: Read, Write, Edit, Bash, Grep, Glob, Task
+model: sonnet
+---
+
 # 파이프라인 에이전트 (Pipeline Agent)
 
 ## 역할

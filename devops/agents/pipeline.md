@@ -1,3 +1,10 @@
+---
+name: devops-pipeline
+description: Impl 코드 구조 + IaC → CI/CD 파이프라인 자동 생성
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # CI/CD 파이프라인 에이전트 (Pipeline Agent)
 
 ## 역할

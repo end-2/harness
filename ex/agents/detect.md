@@ -1,3 +1,10 @@
+---
+name: ex-detect
+description: 매니페스트·설정 파일·코드 패턴을 분석하여 기술 스택을 자동 탐지
+tools: Read, Glob, Grep, Bash
+model: sonnet
+---
+
 # 기술 스택 탐지 에이전트 (Detect Agent)
 
 ## 역할

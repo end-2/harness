@@ -1,3 +1,10 @@
+---
+name: devops-review
+description: 전체 산출물 통합 리뷰, Deploy-Observe 피드백 루프 완전성 검증
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # DevOps 리뷰 에이전트 (Review Agent)
 
 ## 역할

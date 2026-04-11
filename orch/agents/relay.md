@@ -1,3 +1,10 @@
+---
+name: orch-relay
+description: 실행 중인 스킬 에이전트와 사용자 간의 멀티턴 대화 중계
+tools: Read, Write, Edit, Bash, Grep, Glob, Task
+model: sonnet
+---
+
 # 릴레이 에이전트 (Relay Agent)
 
 ## 역할

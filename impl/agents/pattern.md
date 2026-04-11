@@ -1,3 +1,10 @@
+---
+name: impl-pattern
+description: generate 과정에서 식별된 패턴 적용 기회를 평가하고 적용
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 디자인 패턴 에이전트 (Pattern Agent)
 
 ## 역할

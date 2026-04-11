@@ -1,3 +1,10 @@
+---
+name: sec-threat-model
+description: Arch 산출물 기반 신뢰 경계/공격 표면 도출, STRIDE 위협 분석, DREAD 우선순위 평가
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 위협 모델링 에이전트 (Threat Model Agent)
 
 ## 역할

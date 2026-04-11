@@ -1,3 +1,10 @@
+---
+name: ex-scan
+description: 프로젝트 디렉토리 구조 스캔, 파일 분류, 진입점 식별, 적응적 깊이 모드 결정
+tools: Read, Glob, Grep, Bash
+model: sonnet
+---
+
 # 구조 스캔 에이전트 (Scan Agent)
 
 ## 역할

@@ -1,3 +1,10 @@
+---
+name: orch-status
+description: 실행 이력 조회, 스킬 상태 확인, 산출물 검색
+tools: Read, Write, Edit, Bash, Grep, Glob, Task
+model: sonnet
+---
+
 # 현황 조회 에이전트 (Status Agent)
 
 ## 역할

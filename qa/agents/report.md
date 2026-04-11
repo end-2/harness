@@ -1,3 +1,10 @@
+---
+name: qa-report
+description: RE 메트릭 대비 품질 현황 종합, 품질 게이트 판정, 잔여 리스크 식별
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 품질 리포트 에이전트 (Report Agent)
 
 ## 역할

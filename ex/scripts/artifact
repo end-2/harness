@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Per-skill artifact wrapper for `ex`.
+#
+# Forwards every argument to the repo-root `scripts/artifact` CLI while
+# auto-injecting `--skill ex` for subcommands that accept it (`init`,
+# `list`). Other subcommands (`path`, `get`, `set`, `validate`) receive the
+# arguments untouched.
+set -euo pipefail
+
+SKILL_NAME="ex"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_ARTIFACT="$HERE/../../scripts/artifact"
+
+if [[ $# -eq 0 ]]; then
+    exec "$ROOT_ARTIFACT"
+fi
+
+SUBCMD="$1"; shift
+
+case "$SUBCMD" in
+    init|list)
+        # Inject --skill if the caller did not pass one.
+        if [[ " $* " == *" --skill "* ]]; then
+            exec "$ROOT_ARTIFACT" "$SUBCMD" "$@"
+        else
+            exec "$ROOT_ARTIFACT" "$SUBCMD" --skill "$SKILL_NAME" "$@"
+        fi
+        ;;
+    *)
+        exec "$ROOT_ARTIFACT" "$SUBCMD" "$@"
+        ;;
+esac

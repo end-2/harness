@@ -1,3 +1,10 @@
+---
+name: impl-generate
+description: Arch 산출물을 기반으로 설계를 실제 코드로 변환
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 코드 생성 에이전트 (Generate Agent)
 
 ## 역할

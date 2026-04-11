@@ -1,3 +1,10 @@
+---
+name: devops-iac
+description: Arch 컴포넌트 구조 + 기술 스택 → IaC 모듈 자동 생성
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # Infrastructure as Code 에이전트 (IaC Agent)
 
 ## 역할

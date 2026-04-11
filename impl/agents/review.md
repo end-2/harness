@@ -1,3 +1,10 @@
+---
+name: impl-review
+description: 생성 코드의 Arch 준수 여부 + 클린 코드 원칙 두 축 리뷰
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 코드 리뷰 에이전트 (Review Agent)
 
 ## 역할

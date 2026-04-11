@@ -1,3 +1,10 @@
+---
+name: re-review
+description: 명세 문서의 섹션별 리뷰 및 후속 스킬 소비 적합성 검증
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 요구사항 리뷰 에이전트 (Review Agent)
 
 ## 역할

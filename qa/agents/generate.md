@@ -1,3 +1,10 @@
+---
+name: qa-generate
+description: acceptance_criteria → 테스트 케이스 변환, 단위/통합/E2E/계약/NFR 테스트 코드 생성(re_refs 내장)
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 테스트 코드 생성 에이전트 (Generate Agent)
 
 ## 역할

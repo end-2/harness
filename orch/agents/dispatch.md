@@ -1,3 +1,10 @@
+---
+name: orch-dispatch
+description: 사용자의 유일한 진입점. 자연어 요청을 분석하여 스킬/파이프라인으로 라우팅
+tools: Read, Write, Edit, Bash, Grep, Glob, Task
+model: sonnet
+---
+
 # 디스패치 에이전트 (Dispatch Agent)
 
 ## 역할

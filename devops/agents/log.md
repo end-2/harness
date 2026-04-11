@@ -1,3 +1,10 @@
+---
+name: devops-log
+description: Arch 컴포넌트 + 보안 제약 → 로깅 표준 / 설정 자동 생성
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 로깅 에이전트 (Log Agent)
 
 ## 역할

@@ -1,3 +1,10 @@
+---
+name: orch-run
+description: 실행 생명주기 관리, 산출물 디렉토리 생성·검증, 상태 추적, 재개 지원
+tools: Read, Write, Edit, Bash, Grep, Glob, Task
+model: sonnet
+---
+
 # 실행 관리 에이전트 (Run Agent)
 
 ## 역할

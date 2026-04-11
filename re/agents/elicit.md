@@ -1,3 +1,10 @@
+---
+name: re-elicit
+description: 사용자와 multi-turn 대화로 모호한 요구를 구조화된 요구사항으로 점진적으로 도출
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 요구사항 도출 에이전트 (Elicit Agent)
 
 ## 역할

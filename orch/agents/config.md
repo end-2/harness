@@ -1,3 +1,10 @@
+---
+name: orch-config
+description: 스킬 설정, 에이전트 규칙, 파이프라인 템플릿 관리
+tools: Read, Write, Edit, Bash, Grep, Glob, Task
+model: sonnet
+---
+
 # 설정 관리 에이전트 (Config Agent)
 
 ## 역할

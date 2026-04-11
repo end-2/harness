@@ -1,3 +1,10 @@
+---
+name: devops-incident
+description: 배포 전략 + 모니터링 설정 → 인시던트 대응 런북 자동 생성
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 인시던트 대응 에이전트 (Incident Agent)
 
 ## 역할

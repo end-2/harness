@@ -1,3 +1,10 @@
+---
+name: re-spec
+description: 분석 결과를 후속 스킬이 소비할 수 있는 세 섹션 명세 문서로 구조화
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 요구사항 명세 에이전트 (Spec Agent)
 
 ## 역할

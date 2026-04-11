@@ -1,3 +1,10 @@
+---
+name: arch-review
+description: design 출력을 RE 품질 속성 메트릭 기반 시나리오로 검증
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 아키텍처 리뷰 에이전트 (Review Agent)
 
 ## 역할

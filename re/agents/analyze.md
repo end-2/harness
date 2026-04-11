@@ -1,3 +1,10 @@
+---
+name: re-analyze
+description: 요구사항의 완전성·일관성·실현 가능성을 분석하고 추가 질문을 생성
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 요구사항 분석 에이전트 (Analyze Agent)
 
 ## 역할

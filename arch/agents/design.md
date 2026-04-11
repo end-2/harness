@@ -1,3 +1,10 @@
+---
+name: arch-design
+description: RE 산출물 기반으로 사용자와의 대화를 통해 아키텍처를 결정
+tools: Read, Write, Edit, Bash
+model: sonnet
+---
+
 # 아키텍처 설계 에이전트 (Design Agent)
 
 ## 역할

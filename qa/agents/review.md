@@ -1,3 +1,10 @@
+---
+name: qa-review
+description: 요구사항 커버리지 검증, RTM 생성, 커버리지 갭 발견 시 generate 재호출
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 테스트 리뷰 에이전트 (Review Agent)
 
 ## 역할

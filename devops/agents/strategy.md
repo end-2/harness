@@ -1,3 +1,10 @@
+---
+name: devops-strategy
+description: SLO + Arch 결정 → 배포 방식 / 롤백 절차 자동 결정
+tools: Read, Write, Edit, Bash, Grep, Glob
+model: sonnet
+---
+
 # 배포 전략 에이전트 (Strategy Agent)
 
 ## 역할
