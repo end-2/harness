@@ -55,10 +55,10 @@ orch는 콘텐츠 스킬의 산출물 레이아웃을 run 단위로 격리하기
 | `HARNESS_ARTIFACTS_DIR` | `<output-root>/runs/<run_id>/<skill>` | 해당 스킬의 모든 산출물(`*.md`, `*.meta.yaml`, `.reports/`)이 쓰여지는 루트 |
 | `HARNESS_RUN_ID` | `<run_id>` | 스킬이 run 식별자를 로그/리포트에 포함해야 할 때 참조 (선택) |
 
-각 콘텐츠 스킬의 `scripts/artifact.py`는 이미 `HARNESS_ARTIFACTS_DIR`를 1순위로 읽고, 미설정 시 `./artifacts/<skill>/`로 폴백합니다. 따라서 orch가 변수만 올바르게 주입하면 `runs/<run_id>/<skill>/` 레이아웃이 스크립트 수정 없이 자연히 성립합니다.
+각 콘텐츠 스킬의 `scripts/artifact.py`는 이미 `HARNESS_ARTIFACTS_DIR`를 1순위로 읽습니다. 대부분의 스킬은 단독 실행 시 `./artifacts/<skill>/`로 폴백하고, `ex`는 대상 코드베이스를 건드리지 않기 위해 `${SKILL_DIR}/out/<run>/`으로 폴백합니다. 따라서 orch가 변수만 올바르게 주입하면 `runs/<run_id>/<skill>/` 레이아웃이 스크립트 수정 없이 자연히 성립합니다.
 
 - **orch 통한 실행**: 항상 `runs/<run_id>/<skill>/` 격리 (orch가 주입)
-- **개별 스킬 단독 실행**: 환경변수 없음 → 기존 `./artifacts/<skill>/` 평탄 레이아웃 유지 (단독 사용자의 멘탈 모델 단순화)
+- **개별 스킬 단독 실행**: 환경변수 없음 → 각 스킬의 standalone 폴백 경로 사용 (`ex`는 `${SKILL_DIR}/out/<run>/`, 나머지는 대체로 `./artifacts/<skill>/`)
 - **리포트 디렉토리**: 각 스킬의 `.reports/`는 `HARNESS_ARTIFACTS_DIR` 하위에 자동 생성되므로 별도 규약이 필요 없습니다.
 
 이 규약은 orch가 스킬 독립성을 깨지 않으면서도 run 격리를 달성하는 **단일 접점**입니다. 스킬 스크립트에 run-id 생성 로직을 이중화하지 않고, run 생명주기 관리를 orch의 `run.py`에 집중시키기 위한 설계 결정입니다.

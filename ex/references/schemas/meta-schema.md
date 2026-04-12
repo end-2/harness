@@ -69,6 +69,8 @@ history:
 
 ## Traceability integrity
 
-`artifact.py validate` checks bidirectional integrity:
+`artifact.py validate` checks:
 - If artifact A lists B in `downstream_refs`, then B must list A in `upstream_refs` (when B exists in the same artifacts directory).
 - For cross-skill references (e.g., `downstream_refs: [re, arch]`), the reference is a skill name, not an artifact ID — no reciprocal check is performed.
+- Section payload shape and required fields for the active section.
+- Cross-section component references (for example architecture layer/component refs that point to missing component IDs).

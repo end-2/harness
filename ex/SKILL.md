@@ -35,7 +35,7 @@ This pre-scan context warms the analysis — Stage 1 (scan) already knows manife
 | `--depth lite\|heavy` | No | Force lightweight or heavyweight mode. Auto-detected if omitted. |
 | `--budget N` | No | Target token count for the final output (default: 4000). |
 | `--focus <path>` | No | Concentrate analysis on a specific subdirectory or component. |
-| `--out <dir>` | No | Output directory. Default: `${SKILL_DIR}/out/${SESSION_ID}/` |
+| `--out <dir>` | No | Output directory for all 8 artifact files. Map this to `HARNESS_ARTIFACTS_DIR` (or pass `--artifacts-dir` to `artifact.py`) before any script call. Default: `${SKILL_DIR}/out/${HARNESS_RUN_ID\|SESSION_ID\|standalone}/` |
 | `--exclude <glob,...>` | No | Additional exclusion patterns beyond `.gitignore` defaults. |
 
 **Output**: four section artifacts, each stored as a YAML metadata file plus a Markdown document:
@@ -53,7 +53,7 @@ Downstream injection contract: read [references/contracts/downstream-injection-c
 
 ## Non-destructive analysis principle
 
-Ex **never writes anything into the target project** (`project_root`). All outputs go to the `--out` directory (default: `${SKILL_DIR}/out/${SESSION_ID}/`). The target codebase is treated as strictly read-only.
+Ex **never writes anything into the target project** (`project_root`). All outputs go to the `--out` directory. If `--out` is omitted, `artifact.py` falls back to `${SKILL_DIR}/out/${HARNESS_RUN_ID\|SESSION_ID\|standalone}/`, which keeps standalone runs outside the target repo. The target codebase is treated as strictly read-only.
 
 ## Adaptive depth
 
@@ -144,15 +144,20 @@ Load [references/workflow/map.md](references/workflow/map.md) and [references/to
   python ${SKILL_DIR}/scripts/artifact.py init --section components
   python ${SKILL_DIR}/scripts/artifact.py init --section architecture
   ```
+- Write the structured section payloads through the script before final validation:
+  ```
+  python ${SKILL_DIR}/scripts/artifact.py set-section <structure-id> --from /tmp/structure-map.yaml
+  python ${SKILL_DIR}/scripts/artifact.py set-section <tech-id>      --from /tmp/tech-stack.yaml
+  python ${SKILL_DIR}/scripts/artifact.py set-section <comp-id>      --from /tmp/components.yaml
+  python ${SKILL_DIR}/scripts/artifact.py set-section <arch-id>      --from /tmp/architecture.yaml
+  ```
+  Each payload may be YAML or JSON. It can be the exact section fields or a wrapper object that contains them.
 - Fill in the Markdown bodies — never touch `.meta.yaml` with Edit/Write.
 - Update state through the script:
   ```
+  python ${SKILL_DIR}/scripts/artifact.py set-progress <id>  --completed 1 --total 1
   python ${SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
-  python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream re
-  python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream arch
-  python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream impl
-  python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream qa
-  python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream sec
+  python ${SKILL_DIR}/scripts/artifact.py link-defaults <id>
   ```
 - Report the absolute paths of all output files so the user can find them.
 
@@ -160,9 +165,10 @@ Output: finalized 4-section artifacts with downstream injection refs registered.
 
 ## Script contract (mandatory)
 
-**Never edit `*.meta.yaml` files directly.** All state changes — phase, progress, approval, traceability — must go through `scripts/artifact.py`. The script enforces:
+**Never edit `*.meta.yaml` files directly.** All state changes — phase, progress, structured section payloads, approval, traceability — must go through `scripts/artifact.py`. The script enforces:
 
 - Schema validation (rejects unknown phases, missing fields).
+- Section payload validation (rejects malformed `technologies`, `components`, `architecture`, etc.).
 - `updated_at` auto-refresh.
 - Legal phase transitions only (`draft -> in_review -> revising -> in_review -> approved -> superseded`).
 - Bidirectional `upstream_refs` / `downstream_refs` integrity.
@@ -173,15 +179,17 @@ Available subcommands:
 | Command | Purpose |
 |---------|---------|
 | `artifact.py init --section <name>` | Create a metadata + markdown pair from templates. Returns the new `artifact_id`. |
+| `artifact.py set-section <id> --from <path> \| --value <yaml-or-json>` | Replace the structured payload for that section (`structure-map`, `tech-stack`, `components`, or `architecture`) through the script. |
 | `artifact.py set-phase <id> <phase>` | Transition phase. |
 | `artifact.py set-progress <id> --completed N --total M` | Update progress. |
 | `artifact.py approve <id> --approver <name> [--notes ...]` | Transition approval state. |
 | `artifact.py link <id> --upstream <ref>` / `--downstream <ref>` | Add a traceability reference. |
+| `artifact.py link-defaults <id>` | Apply the documented downstream skill links for that section (`Structure Map -> re/impl/qa`, etc.). |
 | `artifact.py show <id>` | Pretty-print the metadata. |
 | `artifact.py list` | List all artifacts. |
 | `artifact.py validate [<id>]` | Validate schema and traceability for one or all artifacts. |
 
-The artifact directory defaults to `./artifacts/ex/` under the user's current working directory. Override with `HARNESS_ARTIFACTS_DIR`.
+The artifact directory resolves in this order: `--artifacts-dir`, then `HARNESS_ARTIFACTS_DIR`, then `${SKILL_DIR}/out/${HARNESS_RUN_ID\|SESSION_ID\|standalone}/`.
 
 ## Escalation rules
 

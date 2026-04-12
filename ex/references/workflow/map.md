@@ -39,7 +39,24 @@ python ${SKILL_DIR}/scripts/artifact.py init --section architecture
 
 Each call copies the template pair from `assets/templates/` into the artifacts directory and returns the generated `artifact_id`. Record all four IDs.
 
-### 3. Fill markdown bodies
+### 3. Write structured section payloads
+
+Before touching the Markdown bodies, materialize the structured metadata through `artifact.py`:
+
+```bash
+python ${SKILL_DIR}/scripts/artifact.py set-section <structure-id> --from /tmp/structure-map.yaml
+python ${SKILL_DIR}/scripts/artifact.py set-section <tech-id>      --from /tmp/tech-stack.yaml
+python ${SKILL_DIR}/scripts/artifact.py set-section <comp-id>      --from /tmp/components.yaml
+python ${SKILL_DIR}/scripts/artifact.py set-section <arch-id>      --from /tmp/architecture.yaml
+```
+
+Each payload may be YAML or JSON. It may either:
+- contain the exact section fields at the top level, or
+- wrap them under a section object (for example `architecture:` or `tech-stack:`).
+
+The metadata files are the single source of truth for structured fields that downstream skills consume. Do not leave them empty and rely on Markdown alone.
+
+### 4. Fill markdown bodies
 
 For each section, edit **only the `.md` file** (never the `.meta.yaml`). Fill in the template placeholders with the analysis results:
 
@@ -78,7 +95,7 @@ For each section, edit **only the `.md` file** (never the `.meta.yaml`). Fill in
 - Build/deploy patterns
 - Token budget summary: target, actual, compressions applied
 
-### 4. Cross-section consistency check
+### 5. Cross-section consistency check
 
 Before finalizing, verify:
 - Component IDs referenced in `architecture.md` exist in `components.md`
@@ -88,7 +105,7 @@ Before finalizing, verify:
 
 Fix any inconsistencies before proceeding.
 
-### 5. Update metadata through scripts
+### 6. Update metadata through scripts
 
 For each of the four artifact IDs:
 
@@ -99,17 +116,13 @@ python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed 1 --total 
 # Transition to in_review
 python ${SKILL_DIR}/scripts/artifact.py set-phase <id> in_review
 
-# Register downstream injection targets
-python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream re
-python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream arch
-python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream impl
-python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream qa
-python ${SKILL_DIR}/scripts/artifact.py link <id> --downstream sec
+# Register the documented downstream injection targets for this section
+python ${SKILL_DIR}/scripts/artifact.py link-defaults <id>
 ```
 
-The specific downstream links per section are defined in [references/contracts/downstream-injection-contract.md](../contracts/downstream-injection-contract.md). Not every section links to every downstream skill — follow the contract.
+The specific downstream links per section are defined in [references/contracts/downstream-injection-contract.md](../contracts/downstream-injection-contract.md). `link-defaults` applies exactly that mapping; use manual `link` calls only for exceptional extra refs.
 
-### 6. Final validation
+### 7. Final validation
 
 Run:
 ```bash
@@ -118,7 +131,7 @@ python ${SKILL_DIR}/scripts/artifact.py validate
 
 Confirm zero validation errors before reporting to the user.
 
-### 7. Report to user
+### 8. Report to user
 
 Present a concise summary:
 

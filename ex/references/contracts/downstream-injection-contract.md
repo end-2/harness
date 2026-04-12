@@ -6,7 +6,7 @@ Ex produces 4-section artifacts and **pushes** them as context into downstream s
 
 Unlike other Harness skills that **pull** from upstream artifacts, Ex **pushes** its output into downstream skills. This means:
 
-1. Ex registers downstream refs via `artifact.py link <id> --downstream <skill>`
+1. Ex registers downstream refs via `artifact.py link-defaults <id>` (or explicit `link` calls for exceptional extra refs)
 2. When a downstream skill runs, it checks for Ex artifacts in the project's artifacts directory
 3. If found, the downstream skill loads the relevant sections as context before its own analysis
 
@@ -106,8 +106,8 @@ Architecture (EX-ARC-*)
 
 ## Injection lifecycle
 
-1. **Ex runs** → creates 4 artifacts → links `--downstream re,arch,impl,qa,sec`
-2. **Downstream skill starts** → checks `artifacts/ex/` for `*.meta.yaml` files with `phase: approved` (or `in_review` if no approved version exists)
+1. **Ex runs** → creates 4 artifacts → registers section-specific downstream refs
+2. **Downstream skill starts** → checks the same artifacts directory Ex wrote to: `HARNESS_ARTIFACTS_DIR` when orchestrated, or Ex's standalone output directory when run directly
 3. **Downstream skill loads** the relevant `.md` files as context
 4. **Downstream skill proceeds** with its own analysis, informed by Ex context
 

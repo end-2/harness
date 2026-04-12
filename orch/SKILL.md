@@ -120,7 +120,7 @@ When spawning a skill, Orch injects two environment variables to isolate artifac
 | `HARNESS_ARTIFACTS_DIR` | `<output-root>/runs/<run_id>/<skill>` | All skill artifacts write here |
 | `HARNESS_RUN_ID` | `<run_id>` | Skills can reference the run ID in logs/reports |
 
-Each content skill's `scripts/artifact.py` already reads `HARNESS_ARTIFACTS_DIR` as its first priority, falling back to `./artifacts/<skill>/`. This means run isolation works without modifying any content skill.
+Each content skill's `scripts/artifact.py` already reads `HARNESS_ARTIFACTS_DIR` as its first priority. Most skills fall back to `./artifacts/<skill>/` for standalone runs; `ex` falls back to its own `${SKILL_DIR}/out/<run>/` path so it never writes into the target codebase. This means run isolation works without modifying any content skill.
 
 ## Run lifecycle
 
