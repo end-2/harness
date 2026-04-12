@@ -60,6 +60,14 @@ def _append_history(
     )
 
 
+def _require_non_empty_rationale(raw: str) -> str:
+    """Reject empty or whitespace-only rationale values."""
+    value = raw.strip()
+    if not value:
+        raise ValueError("rationale must not be empty")
+    return value
+
+
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
@@ -80,6 +88,9 @@ def cmd_request(args: argparse.Namespace) -> int:
         return 2
 
     approval["state"] = "pending"
+    approval["approver"] = None
+    approval["approved_at"] = None
+    approval["rationale"] = None
     data["phase"] = "in_review"
     _append_history(approval, state="pending", approver=None, rationale="Review requested")
     save_meta(meta_path, data)
@@ -106,13 +117,14 @@ def cmd_approve(args: argparse.Namespace) -> int:
         )
         return 2
 
+    rationale = _require_non_empty_rationale(args.rationale)
     ts = now_iso()
     approval["state"] = "approved"
     approval["approver"] = args.approver
     approval["approved_at"] = ts
-    approval["notes"] = args.rationale
+    approval["rationale"] = rationale
     data["phase"] = "approved"
-    _append_history(approval, state="approved", approver=args.approver, rationale=args.rationale)
+    _append_history(approval, state="approved", approver=args.approver, rationale=rationale)
     save_meta(meta_path, data)
     print(f"{args.id}: approved by {args.approver}")
     return 0
@@ -131,11 +143,19 @@ def cmd_reject(args: argparse.Namespace) -> int:
         )
         return 2
 
+    if data.get("phase") != "in_review":
+        sys.stderr.write(
+            "error: artifact must be in_review before it can be rejected\n"
+        )
+        return 2
+
+    rationale = _require_non_empty_rationale(args.rationale)
     approval["state"] = "rejected"
     approval["approver"] = args.approver
-    approval["notes"] = args.rationale
+    approval["approved_at"] = None
+    approval["rationale"] = rationale
     data["phase"] = "revising"
-    _append_history(approval, state="rejected", approver=args.approver, rationale=args.rationale)
+    _append_history(approval, state="rejected", approver=args.approver, rationale=rationale)
     save_meta(meta_path, data)
     print(f"{args.id}: rejected by {args.approver}, phase -> revising")
     return 0
@@ -162,16 +182,32 @@ def cmd_accept_risk(args: argparse.Namespace) -> int:
         )
         return 2
 
+    if data.get("phase") != "in_review":
+        sys.stderr.write(
+            "error: artifact must be in_review before risk can be accepted\n"
+        )
+        return 2
+
+    if data.get("section") == "compliance-report" and not args.compliance_override:
+        sys.stderr.write(
+            "error: compliance-report risk acceptance requires --compliance-override\n"
+        )
+        return 2
+
+    rationale = _require_non_empty_rationale(args.rationale)
+    ts = now_iso()
     approval["state"] = "conditionally_approved"
     approval["approver"] = args.approver
-    approval["notes"] = args.rationale
+    approval["approved_at"] = ts
+    approval["rationale"] = rationale
+    approval["conditions"] = ["accepted_risk"]
     approval["risk_accepted"] = True
-    approval["risk_accepted_at"] = now_iso()
+    approval["risk_accepted_at"] = ts
     _append_history(
         approval,
         state="conditionally_approved",
         approver=args.approver,
-        rationale=f"[RISK ACCEPTED] {args.rationale}",
+        rationale=f"[RISK ACCEPTED] {rationale}",
     )
     save_meta(meta_path, data)
     print(f"{args.id}: risk accepted by {args.approver} (conditionally_approved)")
@@ -210,6 +246,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("id", help="artifact id")
     sp.add_argument("--approver", required=True, help="name of person accepting the risk")
     sp.add_argument("--rationale", required=True, help="risk acceptance rationale")
+    sp.add_argument(
+        "--compliance-override",
+        action="store_true",
+        help="required when accepting risk on a compliance report artifact",
+    )
     sp.set_defaults(func=cmd_accept_risk)
 
     return p

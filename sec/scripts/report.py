@@ -59,6 +59,37 @@ def _check_broken_refs(all_data: dict[str, dict[str, Any]]) -> list[str]:
     return broken
 
 
+def _iter_critical_items(data: dict[str, Any]) -> list[tuple[str, str]]:
+    """Return (label, severity) pairs for nested critical findings."""
+    section = data.get("section")
+    critical: list[tuple[str, str]] = []
+
+    if section == "threat-model":
+        block = data.get("threat_model") or {}
+        for threat in block.get("threats") or []:
+            if str(threat.get("risk_level", "")).lower() == "critical":
+                critical.append((threat.get("id", "?"), "critical"))
+    elif section == "vulnerability-report":
+        for vuln in data.get("vulnerability_report") or []:
+            if str(vuln.get("severity", "")).lower() == "critical":
+                critical.append((vuln.get("id", "?"), "critical"))
+    elif section == "security-advisory":
+        for advisory in data.get("security_advisory") or []:
+            if str(advisory.get("priority", "")).lower() == "critical":
+                critical.append((advisory.get("id", "?"), "critical"))
+    elif section == "compliance-report":
+        block = data.get("compliance_report") or {}
+        for finding in block.get("findings") or []:
+            status = str(finding.get("status", "")).lower()
+            severity = str(finding.get("severity", "")).lower()
+            if severity == "critical" or (
+                severity == "" and status == "non_compliant"
+            ):
+                critical.append((finding.get("requirement_id", "?"), severity or status))
+
+    return critical
+
+
 def cmd_summary(_args: argparse.Namespace) -> int:
     """Print a concise status report of all sec artifacts."""
     files = all_meta_files()
@@ -89,10 +120,7 @@ def cmd_summary(_args: argparse.Namespace) -> int:
         phase_counts[phase] += 1
         approval_counts[approval] += 1
 
-        # Check for unapproved critical findings
-        severity = data.get("severity", "").lower()
-        risk_level = data.get("risk_level", "").lower()
-        if (severity == "critical" or risk_level == "critical") and approval != "approved":
+        if approval != "approved" and _iter_critical_items(data):
             critical_unapproved.append(data)
 
         # Collect compliance report artifacts
@@ -137,9 +165,11 @@ def cmd_summary(_args: argparse.Namespace) -> int:
         for data in critical_unapproved:
             aid = data.get("artifact_id", "?")
             section = data.get("section", "?")
-            sev = data.get("severity", data.get("risk_level", "?"))
+            critical_labels = ", ".join(
+                f"{item_id}:{sev}" for item_id, sev in _iter_critical_items(data)
+            )
             state = (data.get("approval") or {}).get("state", "?")
-            print(f"  {aid}  section={section}  severity={sev}  approval={state}")
+            print(f"  {aid}  section={section}  items={critical_labels}  approval={state}")
         print()
 
     # Compliance gap summary
@@ -150,8 +180,17 @@ def cmd_summary(_args: argparse.Namespace) -> int:
             aid = data.get("artifact_id", "?")
             phase = data.get("phase", "?")
             state = (data.get("approval") or {}).get("state", "?")
-            gaps = data.get("compliance_gaps") or data.get("gaps") or []
-            gap_info = f"  gaps={len(gaps)}" if gaps else ""
+            block = data.get("compliance_report") or {}
+            gaps = (
+                block.get("gap_summary")
+                or data.get("compliance_gaps")
+                or data.get("gaps")
+                or []
+            )
+            if isinstance(gaps, list):
+                gap_info = f"  gaps={len(gaps)}" if gaps else ""
+            else:
+                gap_info = "  gaps=1" if str(gaps).strip() else ""
             print(f"  {aid}  phase={phase}  approval={state}{gap_info}")
         print()
 

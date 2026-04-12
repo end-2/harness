@@ -10,19 +10,23 @@ approval:
   approver: bob
   approved_at: 2026-04-11T17:00:00Z
   rationale: "Full STRIDE analysis covers all 8 components and 8 trust boundaries. 13 threats identified, 1 critical (TM-012 privilege escalation). All mitigations proposed and accepted. PCI DSS and GDPR implications mapped to compliance stage."
+  conditions: []
   history:
     - state: pending
-      approver: bob
+      approver: null
+      rationale: "Review requested"
       at: 2026-04-11T15:30:00Z
-      notes: null
-    - state: in_review
+      session_id: sec-session-heavy-001
+    - state: changes_requested
       approver: bob
+      rationale: "Requested clarification on mTLS enforcement timeline"
       at: 2026-04-11T16:00:00Z
-      notes: "Requested clarification on mTLS enforcement timeline"
+      session_id: sec-session-heavy-001
     - state: approved
       approver: bob
-      at: 2026-04-11T17:00:00Z
       rationale: "Full STRIDE analysis covers all 8 components. mTLS enforcement confirmed for v1."
+      at: 2026-04-11T17:00:00Z
+      session_id: sec-session-heavy-001
 upstream_refs:
   - ARCH-COMP-001
   - ARCH-DEC-001
@@ -46,7 +50,10 @@ downstream_refs:
   - SEC-VA-001
   - SEC-SR-001
   - SEC-CR-001
-document_path: SEC-TM-001.md
+cross_refs:
+  threat_refs: []
+  vuln_refs: []
+document_path: threat-model-output.md
 created_at: 2026-04-11T14:00:00Z
 updated_at: 2026-04-11T17:00:00Z
 

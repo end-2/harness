@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sec"
+  short_description: "Analyze architecture and code for security"
+  default_prompt: "Use $sec to produce a threat model, vulnerability report, security advisory, and compliance report from approved Arch and Impl artifacts."

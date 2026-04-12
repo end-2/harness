@@ -1,0 +1,7 @@
+interface:
+  display_name: "Sec Record"
+  short_description: "Record Sec artifacts and approvals"
+  default_prompt: "Use $sec-record to create, validate, and approve Sec artifacts through the audited scripts."
+
+policy:
+  allow_implicit_invocation: false

@@ -10,7 +10,7 @@ All metadata is managed by `scripts/artifact.py`. **Never edit `*.meta.yaml` by 
 |-------|------|----------|-------------|
 | `artifact_id` | string | yes | Stable identifier. Pattern: `SEC-<SECTION>-<NNN>` where SECTION is one of `TM`, `VA`, `SR`, `CR`. Assigned by `artifact.py init`. |
 | `section` | enum | yes | One of `threat-model`, `vulnerability-report`, `security-advisory`, `compliance-report`. |
-| `phase` | enum | yes | Lifecycle phase. One of `draft`, `in_review`, `revising`, `approved`, `rejected`, `archived`. |
+| `phase` | enum | yes | Lifecycle phase. One of `draft`, `in_review`, `revising`, `approved`, `superseded`. |
 | `progress` | object | yes | `{section_completed: int, section_total: int, percent: int}`. Managed by `set-progress`. |
 | `approval` | object | yes | Approval record (see below). |
 | `upstream_refs` | list[string] | yes | IDs that this artifact depends on. May be `ARCH-*`, `IMPL-*`, or `RE-*`. Managed by `link`. |
@@ -66,7 +66,7 @@ approval:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `state` | enum | One of `pending`, `approved`, `rejected`, `conditionally_approved`. |
+| `state` | enum | One of `pending`, `approved`, `rejected`, `changes_requested`, `conditionally_approved`. |
 | `approver` | string | Username or role when state is not `pending`. |
 | `approved_at` | string | ISO 8601 UTC, set when state transitions to `approved` or `conditionally_approved`. |
 | `conditions` | string | When `state == conditionally_approved`, the conditions that must be met. |
@@ -96,10 +96,11 @@ For compliance-sensitive projects (PCI, HIPAA, GDPR), the approval history may b
 
 ```
 pending                  → approved | rejected | conditionally_approved
+pending                  → changes_requested
 rejected                 → pending
-conditionally_approved   → approved | rejected | pending
-approved                 → archived
-archived                 → (terminal)
+changes_requested        → pending | approved | rejected
+conditionally_approved   → approved | pending
+approved                 → (terminal)
 ```
 
 **Phase gate**: `state` cannot transition to `approved` unless `phase == in_review`. The script refuses jumps like `draft → approved`.
@@ -124,12 +125,11 @@ These are intra-skill references (within Sec), distinct from `upstream_refs` (to
 ## Phase transitions
 
 ```
-draft      → in_review | archived
-in_review  → revising  | approved | rejected | archived
-revising   → in_review | archived
-approved   → archived
-rejected   → draft | archived
-archived   → (terminal)
+draft      → in_review | superseded
+in_review  → revising  | approved | superseded
+revising   → in_review | superseded
+approved   → superseded
+superseded → (terminal)
 ```
 
 ## Traceability rules
@@ -141,7 +141,7 @@ archived   → (terminal)
 
 ## Validation
 
-Run `python ${SKILL_DIR}/scripts/artifact.py validate` to check:
+Run `python ${SKILL_DIR}/scripts/artifact.py validate` or `python ${SKILL_DIR}/scripts/validate.py [<id>]` to check:
 
 1. Every required field is present.
 2. Enums (`phase`, `section`, `approval.state`) hold legal values.

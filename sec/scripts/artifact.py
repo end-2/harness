@@ -61,8 +61,23 @@ REQUIRED_META_FIELDS = (
     "downstream_refs",
     "cross_refs",
     "document_path",
+    "created_at",
     "updated_at",
 )
+
+SECTION_BLOCK_KEYS: dict[str, str] = {
+    "threat-model": "threat_model",
+    "vulnerability-report": "vulnerability_report",
+    "security-advisory": "security_advisory",
+    "compliance-report": "compliance_report",
+}
+
+SECTION_BLOCK_TYPES: dict[str, type[Any]] = {
+    "threat_model": dict,
+    "vulnerability_report": list,
+    "security_advisory": list,
+    "compliance_report": dict,
+}
 
 REPORT_KINDS = ("analyze", "review", "threat-analysis", "audit-scan", "compliance-check")
 REPORT_VERDICTS = ("pass", "at_risk", "fail", "n/a")
@@ -227,7 +242,8 @@ def cmd_init(args: argparse.Namespace) -> int:
             "state": "pending",
             "approver": None,
             "approved_at": None,
-            "notes": None,
+            "rationale": None,
+            "conditions": [],
             "history": [],
         },
     )
@@ -323,20 +339,22 @@ def cmd_approve(args: argparse.Namespace) -> int:
         )
         return 2
 
+    rationale = args.rationale if args.rationale is not None else args.notes
     ts = now_iso()
     sid = _session_id()
     approval["state"] = target_state
     approval["approver"] = args.approver
-    approval["notes"] = args.notes
-    if target_state == "approved":
+    approval["rationale"] = rationale
+    if target_state in {"approved", "conditionally_approved"}:
         approval["approved_at"] = ts
+    if target_state == "approved":
         data["phase"] = "approved"
     history = approval.setdefault("history", [])
     entry: dict[str, Any] = {
         "state": target_state,
         "approver": args.approver,
         "at": ts,
-        "notes": args.notes,
+        "rationale": rationale,
         "session_id": sid,
     }
     history.append(entry)
@@ -442,6 +460,73 @@ def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
         doc_path = path.parent / doc_rel
         if not doc_path.exists():
             errors.append(f"{path.name}: document_path missing: {doc_rel}")
+    block_key = SECTION_BLOCK_KEYS.get(section)
+    if block_key:
+        block = data.get(block_key)
+        expected = SECTION_BLOCK_TYPES[block_key]
+        if block is None:
+            errors.append(f"{path.name}: missing section block {block_key!r}")
+        elif not isinstance(block, expected):
+            kind = "mapping" if expected is dict else "list"
+            errors.append(f"{path.name}: {block_key} must be a {kind}")
+    return errors
+
+
+def _validate_progress(data: dict[str, Any], path: Path) -> list[str]:
+    errors: list[str] = []
+    progress = data.get("progress")
+    if not isinstance(progress, dict):
+        return [f"{path.name}: progress must be a mapping"]
+
+    completed = progress.get("section_completed")
+    total = progress.get("section_total")
+    percent = progress.get("percent")
+    if not all(isinstance(v, int) for v in (completed, total, percent)):
+        return [f"{path.name}: progress fields must all be integers"]
+    if total < 0:
+        errors.append(f"{path.name}: progress.section_total cannot be negative")
+        return errors
+    if total == 0:
+        if completed != 0 or percent != 0:
+            errors.append(
+                f"{path.name}: progress must be 0/0/0 before totals are set"
+            )
+        return errors
+    if completed < 0 or completed > total:
+        errors.append(
+            f"{path.name}: progress.section_completed cannot exceed section_total"
+        )
+    expected_percent = int(round(100 * completed / total))
+    if percent != expected_percent:
+        errors.append(
+            f"{path.name}: progress.percent must be {expected_percent}, got {percent}"
+        )
+    return errors
+
+
+def _validate_approval(data: dict[str, Any], path: Path) -> list[str]:
+    errors: list[str] = []
+    approval = data.get("approval")
+    if not isinstance(approval, dict):
+        return [f"{path.name}: approval must be a mapping"]
+    history = approval.get("history", [])
+    if not isinstance(history, list):
+        return [f"{path.name}: approval.history must be a list"]
+    required_history_fields = ("state", "approver", "rationale", "at", "session_id")
+    for idx, entry in enumerate(history):
+        if not isinstance(entry, dict):
+            errors.append(f"{path.name}: approval.history[{idx}] must be a mapping")
+            continue
+        for field in required_history_fields:
+            if field not in entry:
+                errors.append(
+                    f"{path.name}: approval.history[{idx}] missing field {field!r}"
+                )
+        state = entry.get("state")
+        if state is not None and state not in APPROVAL_STATES:
+            errors.append(
+                f"{path.name}: approval.history[{idx}] has unknown state {state!r}"
+            )
     return errors
 
 
@@ -467,9 +552,10 @@ def _validate_traceability(all_data: dict[str, dict[str, Any]]) -> list[str]:
         cross = data.get("cross_refs") or {}
         for ref_kind in ("threat_refs", "vuln_refs"):
             for ref in cross.get(ref_kind) or []:
-                if ref in ids:
-                    continue  # exists locally
-                # Check cross-skill ref format
+                if ref.startswith("SEC-") and ref not in ids:
+                    errors.append(
+                        f"{aid}: cross_ref {ref!r} in {ref_kind} not found among sec artifacts"
+                    )
                 if not any(ref.startswith(p) for p in ("ARCH-", "IMPL-", "RE-", "SEC-")):
                     errors.append(
                         f"{aid}: cross_ref {ref!r} in {ref_kind} has invalid prefix format"
@@ -494,6 +580,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
         if args.artifact_id and data.get("artifact_id") != args.artifact_id:
             continue
         errors.extend(_validate_meta(data, p))
+        errors.extend(_validate_progress(data, p))
+        errors.extend(_validate_approval(data, p))
         aid = data.get("artifact_id")
         if isinstance(aid, str):
             loaded[aid] = data
@@ -723,7 +811,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=APPROVAL_STATES,
     )
     sp.add_argument("--approver", required=True)
-    sp.add_argument("--notes", default=None)
+    sp.add_argument("--rationale", default=None)
+    sp.add_argument("--notes", default=None, help=argparse.SUPPRESS)
     sp.set_defaults(func=cmd_approve)
 
     sp = sub.add_parser("link", help="add an upstream/downstream reference")

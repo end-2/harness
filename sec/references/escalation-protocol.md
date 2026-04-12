@@ -80,12 +80,12 @@ Do not proceed until the user responds. Do not auto-accept, auto-defer, or apply
 
 ### Step 4 — Record the decision
 
-Record the user's decision using the artifact management script:
+Record the user's decision using the audited Sec scripts:
 
 **If the user accepts the recommendation or an alternative**:
 
 ```bash
-python ${SKILL_DIR}/scripts/artifact.py approve <artifact-id> \
+python ${SKILL_DIR}/scripts/approval.py approve <artifact-id> \
   --approver "<user>" \
   --rationale "Accepted recommendation: <summary>"
 ```
@@ -93,8 +93,7 @@ python ${SKILL_DIR}/scripts/artifact.py approve <artifact-id> \
 **If the user accepts the risk**:
 
 ```bash
-python ${SKILL_DIR}/scripts/artifact.py accept-risk \
-  --artifact <artifact-id> \
+python ${SKILL_DIR}/scripts/approval.py accept-risk <artifact-id> \
   --approver "<user>" \
   --rationale "<user-provided rationale>"
 ```
@@ -104,7 +103,7 @@ The user **must** provide a rationale for risk acceptance. "No reason" or empty 
 **If the user defers to Arch / Impl**:
 
 ```bash
-python ${SKILL_DIR}/scripts/artifact.py defer <artifact-id> \
+python ${SKILL_DIR}/scripts/approval.py reject <artifact-id> \
   --approver "<user>" \
   --rationale "Deferred to <Arch|Impl> for structural fix: <summary>"
 ```
@@ -123,12 +122,10 @@ Compliance escalations (condition 2) have stricter rules than vulnerability or t
 - **May require external approval**: for some standards (PCI DSS Level 1, SOC 2 Type II), the script warns that external auditor notification may be needed.
 
 ```bash
-python ${SKILL_DIR}/scripts/artifact.py accept-risk \
-  --artifact SEC-CR-001 \
+python ${SKILL_DIR}/scripts/approval.py accept-risk SEC-CR-001 \
   --approver "alice.kim" \
   --rationale "Gap accepted for MVP. Remediation scheduled for Q3." \
-  --compliance-override \
-  --remediation-target "2026-09-01"
+  --compliance-override
 ```
 
 ## Audit trail

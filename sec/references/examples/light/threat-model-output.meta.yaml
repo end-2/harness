@@ -10,15 +10,18 @@ approval:
   approver: alice
   approved_at: 2026-04-11T15:00:00Z
   rationale: "Light-mode threat model covers top threats for single-service CRUD API. No critical unmitigated risks. Rate limiting recommendation accepted as enhancement."
+  conditions: []
   history:
     - state: pending
-      approver: alice
+      approver: null
+      rationale: "Review requested"
       at: 2026-04-11T14:00:00Z
-      notes: null
+      session_id: sec-session-light-001
     - state: approved
       approver: alice
-      at: 2026-04-11T15:00:00Z
       rationale: "Light-mode threat model covers top threats for single-service CRUD API."
+      at: 2026-04-11T15:00:00Z
+      session_id: sec-session-light-001
 upstream_refs:
   - ARCH-COMP-001
   - ARCH-DEC-001
@@ -32,7 +35,10 @@ downstream_refs:
   - SEC-VA-001
   - SEC-SR-001
   - SEC-CR-001
-document_path: SEC-TM-001.md
+cross_refs:
+  threat_refs: []
+  vuln_refs: []
+document_path: threat-model-output.md
 created_at: 2026-04-11T13:30:00Z
 updated_at: 2026-04-11T15:00:00Z
 

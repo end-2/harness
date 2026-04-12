@@ -11,7 +11,7 @@ If RE answered **"what are we building?"**, Arch answered **"how is it structure
 
 Threat modeling requires domain context that Arch artifacts alone cannot provide (data sensitivity classifications, threat actor profiles, regulatory scope), so it uses a **dialogue model** with the user. The remaining stages — audit, review, compliance — derive mechanically from upstream artifacts and run as **automatic execution + exception escalation**.
 
-**Sec is read-only.** It analyses artifacts and code but never modifies them. All metadata creation and state changes (phase transitions, approvals, audit trail entries) require the user to explicitly invoke the companion `sec-record` skill. This separation ensures that risk-acceptance decisions and compliance judgements always have a human in the loop.
+**Sec is read-only.** It analyses artifacts and code but never modifies them. All metadata creation and state changes (phase transitions, approvals, audit trail entries) require the user to explicitly invoke the companion `sec-record` skill in the sibling [sec-record](/Users/sejong/workspace/harness/sec-record/SKILL.md) directory. This separation ensures that risk-acceptance decisions and compliance judgements always have a human in the loop.
 
 ## Current state (injected at load)
 
@@ -154,7 +154,7 @@ Sec is **read-only** — it analyses and recommends but never writes metadata or
 | Request approval | `approval.py request <id>` |
 | Approve artifact | `approval.py approve <id> --approver <name> --rationale "..."` |
 | Reject artifact | `approval.py reject <id> --approver <name> --rationale "..."` |
-| Record risk acceptance | `approval.py accept-risk <id> --approver <name> --rationale "..."` |
+| Record risk acceptance | `approval.py accept-risk <id> --approver <name> --rationale "..." [--compliance-override]` |
 | Validate schemas | `validate.py [<id>]` |
 
 When analysis produces results that need recording, tell the user exactly which `sec-record` commands to run. For example: "The threat model draft is ready. To create the artifact and transition it to review, run: `/sec-record init --section threat-model` followed by `/sec-record set-phase SEC-TM-001 in_review`."
@@ -180,7 +180,7 @@ Three conditions trigger immediate escalation to the user (analysis pauses until
 2. **Regulatory non-compliance** — `hard` RE constraint with `non_compliant` status
 3. **Unmitigated critical threat** — `risk_level: critical` with `mitigation_status: unmitigated`
 
-For each escalation, present: the finding, its severity, the affected components, the recommended action, and alternatives. The user's decision must be recorded via `sec-record` (`approval.py accept-risk` or `approval.py approve` with rationale) to maintain the audit trail. Full protocol: [references/escalation-protocol.md](references/escalation-protocol.md).
+For each escalation, present: the finding, its severity, the affected components, the recommended action, and alternatives. The user's decision must be recorded via `sec-record` (`approval.py accept-risk` or `approval.py approve` with rationale) to maintain the audit trail. For compliance-report artifacts, `accept-risk` additionally requires `--compliance-override`. Full protocol: [references/escalation-protocol.md](references/escalation-protocol.md).
 
 ## A few non-negotiables
 
