@@ -48,7 +48,7 @@ Run:
 python ${SKILL_DIR}/scripts/artifact.py validate
 ```
 
-This checks schema compliance, bidirectional `upstream_refs` / `downstream_refs` integrity, phase and approval states, and that every `document_path` exists. Do not proceed while there are errors.
+This checks common metadata, section payload completeness for review-ready artifacts, bidirectional `upstream_refs` / `downstream_refs` integrity, phase and approval states, and that every `document_path` exists. Do not proceed while there are errors.
 
 ### 5. Downstream fitness check
 
@@ -57,9 +57,9 @@ Read [../contracts/downstream-contract.md](../contracts/downstream-contract.md) 
 - **`arch:design`** — does the requirements set give enough to derive architectural drivers? Are the top-3 quality attributes concrete enough to pick patterns?
 - **`qa:strategy`** — does every FR have at least one acceptance criterion that `qa` can turn into a test case?
 - **`impl:generate`** — is the scope boundary clear enough that `impl` knows what *not* to build?
-- **`security:threat-model`** — are the regulatory constraints and security quality attribute concrete enough to seed STRIDE/LINDDUN?
-- **`deployment:strategy`** — are the environmental constraints (regions, uptime, compliance zones) recorded?
-- **`operation:slo`** — are the measurable targets specific enough to become SLOs?
+- **`sec:threat-model`** — are the regulatory constraints and security quality attribute concrete enough to seed STRIDE/LINDDUN?
+- **`devops:iac`** — are the environmental constraints (regions, uptime, compliance zones, cloud restrictions) recorded?
+- **`devops:slo`** — are the measurable targets specific enough to become SLOs?
 
 If the answer to any of these is "not really", write down what is missing, bring it to the user, and either fix it in place or loop back to the relevant earlier stage.
 
@@ -107,7 +107,7 @@ Per-QA check for metric, trade-off notes, and top-3 rationale.
 Findings from the `artifact.py validate` run plus anything the subagent spotted by eye.
 
 ## Downstream fitness
-One bullet per downstream skill (`arch:design`, `qa:strategy`, `impl:generate`, `security:threat-model`, `deployment:strategy`, `operation:slo`) — does the artifact carry enough for that consumer?
+One bullet per downstream skill (`arch:design`, `qa:strategy`, `impl:generate`, `sec:threat-model`, `devops:iac`, `devops:slo`) — does the artifact carry enough for that consumer?
 
 ## Escalations
 Bullet list of items only the user can resolve (mirrors `items[]` with `classification: escalation`).

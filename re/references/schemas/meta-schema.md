@@ -2,7 +2,7 @@
 
 Every RE artifact (`requirements`, `constraints`, `quality-attributes`) has a `*.meta.yaml` file. The **common fields** documented here are shared across all three sections. Section-specific fields (the tables of FRs, constraints, quality attributes) are documented in [section-schemas.md](section-schemas.md).
 
-Never edit `*.meta.yaml` files by hand. All common-field mutations happen through `scripts/artifact.py`.
+Never edit script-managed workflow fields in `*.meta.yaml` by hand. Common-field mutations happen through `scripts/artifact.py`; section-specific content lists are documented separately in [section-schemas.md](section-schemas.md).
 
 ## Common fields
 
@@ -35,7 +35,7 @@ Never edit `*.meta.yaml` files by hand. All common-field mutations happen throug
 | `approved` | Reviewed and accepted. Consumable by downstream skills. | `superseded` |
 | `superseded` | Replaced by a newer artifact. Kept for history only. | — |
 
-Transitions are enforced by `artifact.py set-phase`. Jumping from `draft` directly to `approved` is rejected.
+`artifact.py set-phase` handles `draft ↔ in_review/revising/superseded` workflow moves. Enter `approved` via `artifact.py approve`, not via `set-phase`. Jumping from `draft` directly to `approved` is rejected.
 
 ## Approval state values
 
@@ -46,7 +46,7 @@ Transitions are enforced by `artifact.py set-phase`. Jumping from `draft` direct
 | `rejected` | Explicitly rejected. Rare — typically means the artifact is being discarded. | `pending` |
 | `approved` | Accepted. Phase automatically moves to `approved`. | — |
 
-Approval transitions are enforced by `artifact.py approve`. Approval to `approved` additionally requires the artifact to be in phase `in_review` first.
+Approval transitions are enforced by `artifact.py approve`. Approval to `approved` additionally requires the artifact to be in phase `in_review` first and pass section-level validation.
 
 ## Traceability semantics
 

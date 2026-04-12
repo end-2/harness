@@ -1,11 +1,11 @@
 ---
 name: re
-description: Turn vague user requests into a three-section requirements artifact (Requirements Spec, Constraints, Quality Attribute Priorities) through multi-turn dialogue, then hand off to downstream skills. Use this skill whenever the user kicks off a new project, asks to revisit requirements, mentions unclear scope, or is about to invoke arch/impl/qa/security/deployment/operation skills — even if they do not explicitly say "requirements".
+description: Turn vague user requests into a three-section requirements artifact (Requirements Spec, Constraints, Quality Attribute Priorities) through multi-turn dialogue, then hand off to downstream skills. Use this skill whenever the user kicks off a new project, asks to revisit requirements, mentions unclear scope, or is about to invoke arch/impl/qa/sec/devops skills — even if they do not explicitly say "requirements".
 ---
 
 # RE — Requirements Engineering Skill
 
-RE is the top of the Harness pipeline. It takes a natural-language request from a single user and, through an interactive dialogue, produces a structured artifact that downstream skills (`arch`, `impl`, `qa`, `security`, `deployment`, `operation`) can consume directly.
+RE is the top of the Harness pipeline. It takes a natural-language request from a single user and, through an interactive dialogue, produces a structured artifact that downstream skills (`arch`, `impl`, `qa`, `sec`, `devops`) can consume directly.
 
 The user is the only stakeholder. Their input will be incomplete and ambiguous, and they often do not yet know exactly what they want. Your job is therefore not to silently generate a document, but to actively detect ambiguity, ask targeted questions, confirm understanding, and iteratively refine — until the user is satisfied.
 
@@ -25,11 +25,11 @@ The command above lists existing artifacts, their phase, approval state, and tra
 2. **Constraints** — technical, business, regulatory, and environmental constraints, classified by flexibility (`hard` / `soft` / `negotiable`).
 3. **Quality Attribute Priorities** — ranked quality attributes (performance, security, scalability, availability, maintainability, usability, …) with measurable targets and explicit trade-off notes.
 
-Each section is a pair `<section>.meta.yaml` + `<section>.md`. Metadata is the single source of truth and is **only** modified through `scripts/artifact.py`. Markdown holds the human-readable body and is edited directly, but only inside the scaffolding produced by `assets/templates/`.
+Each section is a pair `<section>.meta.yaml` + `<section>.md`. Workflow metadata (`phase`, `progress`, `approval`, `upstream_refs`, `downstream_refs`, timestamps, paths) is the single source of truth for state and traceability and is **only** modified through `scripts/artifact.py`. Section-specific structured lists inside `*.meta.yaml` mirror the markdown tables and may be edited directly, but never use direct edits for script-managed fields. Markdown holds the human-readable body and is edited directly, but only inside the scaffolding produced by `assets/templates/`.
 
 Full schemas: read [references/schemas/section-schemas.md](references/schemas/section-schemas.md) and [references/schemas/meta-schema.md](references/schemas/meta-schema.md) when you need the exact field list.
 
-Downstream consumption contract: read [references/contracts/downstream-contract.md](references/contracts/downstream-contract.md) before declaring the artifact ready, so you know what `arch`/`impl`/`qa`/`security`/`deployment`/`operation` will actually look for.
+Downstream consumption contract: read [references/contracts/downstream-contract.md](references/contracts/downstream-contract.md) before declaring the artifact ready, so you know what `arch`/`impl`/`qa`/`sec`/`devops` will actually look for.
 
 ## Adaptive depth
 
@@ -148,7 +148,7 @@ Load [references/workflow/review.md](references/workflow/review.md).
 - Verify each requirement against SMART (Specific, Measurable, Achievable, Relevant, Testable). Flag any "fast" or "scalable" without a number behind it.
 - Check constraint mutual consistency and requirement-constraint alignment.
 - Check that every quality attribute has a measurable target and an explicit trade-off note.
-- Run the **downstream fitness check** described in [references/contracts/downstream-contract.md](references/contracts/downstream-contract.md): is there enough information for `arch` to derive drivers, for `qa` to derive test strategy, for `security` to derive a threat model?
+- Run the **downstream fitness check** described in [references/contracts/downstream-contract.md](references/contracts/downstream-contract.md): is there enough information for `arch` to derive drivers, for `qa` to derive test strategy, for `sec` to derive a threat model, and for `devops` to derive infrastructure and SLOs?
 - Run `python ${SKILL_DIR}/scripts/artifact.py validate` one more time to confirm schema and traceability are clean.
 - Escalate anything you cannot decide alone. When the user approves:
   ```
@@ -160,11 +160,11 @@ Once all three artifacts are `approved`, RE is done. Point the user at the next 
 
 ## Script contract (mandatory)
 
-**Never edit `*.meta.yaml` files directly.** All state changes — phase, progress, approval, traceability — must go through `scripts/artifact.py`. The script enforces:
+**Never edit script-managed fields in `*.meta.yaml` directly.** All state changes — phase, progress, approval, traceability — must go through `scripts/artifact.py`. The script enforces:
 
-- Schema validation (rejects unknown phases, missing fields).
+- Schema validation (common metadata always, and section payload completeness once artifacts enter review).
 - `updated_at` auto-refresh.
-- Legal phase transitions only (`draft → in_review → revising → in_review → approved → superseded`). You cannot jump straight from `draft` to `approved`.
+- Legal workflow transitions only (`draft → in_review → revising → in_review`, with `approve` moving `in_review → approved`, then `approved → superseded`). You cannot jump straight from `draft` to `approved`.
 - Bidirectional `upstream_refs` / `downstream_refs` integrity.
 - An `approval.history` audit trail with timestamps.
 
@@ -193,5 +193,5 @@ The artifact directory defaults to `./artifacts/re/` under the user's current wo
 - **Adaptive depth.** Do not force heavy process on a single-feature request; do not trivialise a genuinely complex system. Pick the mode consciously and tell the user which mode you chose and why.
 - **Three sections, nothing more.** RE stops at high-level requirements. Do not sneak in architecture decisions or implementation details — those belong to `arch` and `impl`.
 - **Traceability.** Every requirement, constraint, and quality attribute gets a stable ID (`FR-001`, `NFR-001`, `CON-001`, `QA-001`). Record the user's utterance as `upstream_refs` so downstream skills can trace decisions back to the source.
-- **Scripts only for metadata.** If you ever feel tempted to `Edit` a `.meta.yaml`, stop — the right answer is almost always a subcommand of `artifact.py`.
+- **Scripts only for workflow metadata.** If you ever feel tempted to edit `phase`, `progress`, `approval`, traceability, timestamps, or `document_path` by hand, stop — the right answer is almost always a subcommand of `artifact.py`. Direct edits are reserved for the section-specific structured lists only.
 - **Subagent reports go to files, not messages.** Every subagent stage allocates a report path via `artifact.py report path` before spawning, the subagent writes the findings to that file, and returns only `report_id + verdict + summary`. This applies in both light and heavy modes — uniformity is the point. Subagents never call `artifact.py set-phase`, `set-progress`, `link`, or `approve` directly; they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them.

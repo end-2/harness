@@ -49,7 +49,7 @@ Everything that affects correctness. Do not compromise on these:
 
 The user may say "do the full process" or "keep it light". Honour the override, but if the override contradicts the signals (e.g. user asks for light mode on a complex system with regulatory items), warn them once:
 
-> "You asked for light mode, but the request involves PII and 8 functional requirements. Heavy mode would give `security:threat-model` and `qa:strategy` more to work with. Light mode is fine if you prefer speed — your call."
+> "You asked for light mode, but the request involves PII and 8 functional requirements. Heavy mode would give `sec:threat-model` and `qa:strategy` more to work with. Light mode is fine if you prefer speed — your call."
 
 Then proceed with the user's choice.
 

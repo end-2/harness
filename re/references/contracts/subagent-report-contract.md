@@ -1,10 +1,10 @@
 # Subagent → Main Handoff Contract (RE)
 
-Subagents in RE (`analyze`, `review`) do **not** return their findings in the message body. They write a **report file** under `${HARNESS_ARTIFACTS_DIR:-./artifacts/re}/.reports/` and return only the file path plus a one-line summary. The main agent then reads, validates, and acts on the file.
+Subagents in RE (`analyze`, `review`) do **not** return their findings in the message body. They write a **report file** under `${HARNESS_ARTIFACTS_DIR:-./artifacts/re}/.reports/` and return only `report_id + verdict + summary`. The main agent then reads, validates, and acts on the file.
 
 This exists for three reasons:
 
-1. **Clean-context guarantee is real.** If a subagent returns a long report in its message, the return value is injected wholesale into the main agent's context — defeating the point of spawning a subagent in the first place. A path + one-line summary is O(1) in context size.
+1. **Clean-context guarantee is real.** If a subagent returns a long report in its message, the return value is injected wholesale into the main agent's context — defeating the point of spawning a subagent in the first place. A short `report_id + verdict + summary` return is O(1) in context size.
 2. **Deterministic parsing.** The report has a strict YAML frontmatter schema (below). The main agent parses the frontmatter programmatically via `artifact.py report show` instead of regexing free-form Markdown.
 3. **Audit trail.** Reports accumulate under `.reports/` and can be re-read later (during a next iteration, during a revise loop, or by a downstream skill that needs to understand why a decision was made).
 

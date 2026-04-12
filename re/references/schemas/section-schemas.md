@@ -1,6 +1,6 @@
 # Section Schemas — Three-Section Artifact
 
-The RE skill produces exactly three section artifacts. Each has a section-specific set of fields inside its `*.meta.yaml` file (documented here) and a matching markdown document (documented in [`assets/templates/`](../../assets/templates/)).
+The RE skill produces exactly three section artifacts. Each has a section-specific set of fields inside its `*.meta.yaml` file (documented here) and a matching markdown document (documented in [`assets/templates/`](../../assets/templates/)). These section-specific lists are the only parts of `*.meta.yaml` that may be edited directly.
 
 Common metadata fields are in [meta-schema.md](meta-schema.md).
 
@@ -68,4 +68,4 @@ Key: `quality_attributes` (list of mappings).
 
 ## Validation rules
 
-`artifact.py validate` enforces only the common metadata schema today. Section-specific structure is *not* machine-checked; the `review` stage is responsible for checking it by reading the artifact and walking the fields above. If future versions want machine validation, add a JSON Schema per section and load it in `_validate_meta`.
+`artifact.py validate` always enforces the common metadata schema. Once an artifact enters `in_review` or `approved`, it also machine-checks the section-specific structure above and requires the section payload to be non-empty and review-ready. Draft artifacts may still be partially filled.

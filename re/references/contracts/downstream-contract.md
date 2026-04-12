@@ -9,9 +9,9 @@ RE artifacts exist to be consumed by the rest of the Harness pipeline. This docu
 | `arch:design` | Quality Attribute Priorities | Requirements Spec (NFRs), Constraints |
 | `impl:generate` | Requirements Spec (FRs) | Constraints |
 | `qa:strategy` | Requirements Spec (acceptance criteria) | Quality Attribute Priorities |
-| `security:threat-model` | Constraints (regulatory), Quality Attribute Priorities (security) | Requirements Spec |
-| `deployment:strategy` | Constraints (environmental) | Quality Attribute Priorities (availability) |
-| `operation:slo` | Quality Attribute Priorities (measurable metrics) | Requirements Spec (NFRs) |
+| `sec:threat-model` | Constraints (regulatory), Quality Attribute Priorities (security) | Requirements Spec |
+| `devops:iac` | Constraints (environmental) | Quality Attribute Priorities (availability) |
+| `devops:slo` | Quality Attribute Priorities (measurable metrics) | Requirements Spec (NFRs) |
 
 ## Per-consumer fitness checks
 
@@ -53,7 +53,7 @@ Requires:
 
 Rejected by `review` if: an FR's acceptance criterion is subjective ("it should feel fast"), or an NFR is un-measurable.
 
-### `security:threat-model`
+### `sec:threat-model`
 
 Derives threat categories and mitigations from regulatory constraints and the security quality attribute.
 
@@ -65,9 +65,9 @@ Requires:
 
 Rejected by `review` if: a user mentioned "PII" or "payments" in elicit but no security/regulatory item made it to the artifact.
 
-### `deployment:strategy`
+### `devops:iac`
 
-Derives deployment topology and rollout strategy from environmental constraints and availability targets.
+Derives infrastructure topology and deployment environment shape from environmental constraints and availability targets.
 
 Requires:
 
@@ -76,14 +76,14 @@ Requires:
 
 Rejected by `review` if: the user mentioned a deployment region or compliance zone but it did not land as a constraint.
 
-### `operation:slo`
+### `devops:slo`
 
 Turns measurable quality-attribute metrics into SLOs.
 
 Requires:
 
 - Every quality attribute in the artifact has a metric specific enough to become an SLI (e.g. "p95 latency over /search"), not just "200ms response time" with no endpoint.
-- The user has either confirmed SLO targets or explicitly delegated them to `operation`.
+- The user has either confirmed SLO targets or explicitly delegated them to `devops`.
 
 Rejected by `review` if: the metric is too abstract to become an SLI.
 

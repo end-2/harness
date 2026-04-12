@@ -10,7 +10,7 @@ The output of `spec` is three paired files per section:
 - `RE-CON-<n>.meta.yaml` + `RE-CON-<n>.md`
 - `RE-QA-<n>.meta.yaml`  + `RE-QA-<n>.md`
 
-Metadata goes **only** through `scripts/artifact.py`. Markdown bodies are edited in place, inside the scaffolding the templates provide.
+Workflow metadata goes **only** through `scripts/artifact.py`. Markdown bodies are edited in place, inside the scaffolding the templates provide.
 
 ## Sequence per section
 
@@ -36,7 +36,7 @@ Open the generated `*.md` file and fill in the tables. Use the IDs you reserved 
 
 For NFRs, the acceptance criterion must be a number with a unit, not an adjective. "< 200ms p95 over 1M rows" is acceptable. "fast" is not.
 
-### Step 3 — update structured state via script
+### Step 3 — update workflow state via script
 
 Once the markdown table has real rows, record progress and traceability:
 
@@ -47,7 +47,7 @@ python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream "user-promp
 
 As the user confirms items, bump `--completed`. This gives both you and the user a visible progress signal.
 
-**Important**: structured fields inside the `.meta.yaml` (`functional_requirements`, `non_functional_requirements`, `constraints`, `quality_attributes`) are the machine-readable mirror of the markdown tables. In the current script these fields are seeded by `init` but not automatically kept in sync with the markdown. When you need to update them, you may edit the structured lists *only*; never edit `phase`, `progress`, `approval`, `upstream_refs`, `downstream_refs`, `document_path`, `updated_at`, or any other field the script manages. If you are unsure, treat the entire file as off-limits and do everything through `artifact.py`.
+**Important**: structured fields inside the `.meta.yaml` (`functional_requirements`, `non_functional_requirements`, `constraints`, `quality_attributes`) are the machine-readable mirror of the markdown tables. You may edit those section-specific lists directly, but nothing else in the file. Never edit `phase`, `progress`, `approval`, `upstream_refs`, `downstream_refs`, `document_path`, timestamps, or any other script-managed field by hand. After updating a structured list, run `python ${SKILL_DIR}/scripts/artifact.py validate <id>` before moving on.
 
 ### Step 4 — present to user, iterate
 
@@ -102,7 +102,7 @@ Three artifact pairs on disk, all in phase `in_review`, with:
 
 ## Common anti-patterns
 
-- **Editing `*.meta.yaml` directly** — the skill contract forbids this. Use `artifact.py`.
+- **Editing script-managed workflow fields directly** — `phase`, `progress`, `approval`, traceability, timestamps, and `document_path` must go through `artifact.py`.
 - **Drafting all three sections in parallel** — iteration gets tangled. Finish one, then the next.
 - **Skipping measurable targets** — "fast", "secure", "scalable" as NFR values. Rejected at review.
 - **Re-deriving decisions from analyze** — trust the reconciled candidate set. If you disagree with it, loop back to `analyze`, don't re-debate in `spec`.

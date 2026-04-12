@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Artifact manager for the RE skill.
 
-Single entry point for all metadata manipulation. The RE skill must not edit
-`*.meta.yaml` files directly — it calls this script instead so that schema,
-phase transitions, traceability, and audit history are enforced consistently.
+Single entry point for workflow metadata manipulation. The RE skill must not
+edit script-managed fields in `*.meta.yaml` files directly — it calls this
+script instead so that schema, phase transitions, traceability, and audit
+history are enforced consistently.
 """
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -34,7 +36,7 @@ SECTIONS = ("requirements", "constraints", "quality-attributes")
 PHASES = ("draft", "in_review", "revising", "approved", "superseded")
 PHASE_TRANSITIONS: dict[str, set[str]] = {
     "draft": {"in_review", "superseded"},
-    "in_review": {"revising", "approved", "superseded"},
+    "in_review": {"revising", "superseded"},
     "revising": {"in_review", "superseded"},
     "approved": {"superseded"},
     "superseded": set(),
@@ -57,8 +59,16 @@ REQUIRED_META_FIELDS = (
     "upstream_refs",
     "downstream_refs",
     "document_path",
+    "created_at",
     "updated_at",
 )
+
+MOSCOW_PRIORITIES = {"Must", "Should", "Could", "Won't"}
+CONSTRAINT_TYPES = {"technical", "business", "regulatory", "environmental"}
+CONSTRAINT_FLEXIBILITY = {"hard", "soft", "negotiable"}
+FR_ID_RE = re.compile(r"^FR-\d{3}$")
+NFR_ID_RE = re.compile(r"^NFR-\d{3}$")
+CON_ID_RE = re.compile(r"^CON-\d{3}$")
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +141,48 @@ def find_meta_by_id(artifact_id: str) -> Path:
 
 def all_meta_files() -> list[Path]:
     return sorted(artifacts_dir().glob("*.meta.yaml"))
+
+
+def _is_non_empty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_string_list(value: Any, *, min_items: int = 0) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) >= min_items
+        and all(_is_non_empty_string(item) for item in value)
+    )
+
+
+def _has_measurement(text: str) -> bool:
+    return bool(re.search(r"\d", text) and re.search(r"[A-Za-z%]", text))
+
+
+def _validate_id_sequence(
+    values: list[dict[str, Any]],
+    *,
+    key: str,
+    pattern: re.Pattern[str],
+    path: Path,
+) -> list[str]:
+    errors: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(values, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: row {index} must be a mapping")
+            continue
+        raw_id = item.get(key)
+        if not _is_non_empty_string(raw_id):
+            errors.append(f"{path.name}: row {index} missing {key!r}")
+            continue
+        assert isinstance(raw_id, str)
+        if not pattern.match(raw_id):
+            errors.append(f"{path.name}: invalid {key} {raw_id!r}")
+        if raw_id in seen:
+            errors.append(f"{path.name}: duplicate {key} {raw_id!r}")
+        seen.add(raw_id)
+    return errors
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +350,16 @@ def cmd_approve(args: argparse.Namespace) -> int:
             "error: artifact must be in_review before it can be approved\n"
         )
         return 2
+    if target_state == "approved":
+        errors = _validate_artifact(data, meta_path, strict=True)
+        if errors:
+            sys.stderr.write(
+                "error: artifact is not approval-ready; fix validation errors "
+                "first\n"
+            )
+            for error in errors:
+                sys.stderr.write(f"  - {error}\n")
+            return 2
 
     ts = now_iso()
     approval["state"] = target_state
@@ -397,26 +459,291 @@ def cmd_list(_args: argparse.Namespace) -> int:
     return 0
 
 
-def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
+def _validate_meta(data: dict[str, Any], path: Path, *, strict: bool) -> list[str]:
     errors: list[str] = []
     for field in REQUIRED_META_FIELDS:
         if field not in data:
             errors.append(f"{path.name}: missing field {field!r}")
+
     phase = data.get("phase")
     if phase not in PHASES:
         errors.append(f"{path.name}: unknown phase {phase!r}")
     section = data.get("section")
     if section not in SECTIONS:
         errors.append(f"{path.name}: unknown section {section!r}")
-    approval = data.get("approval") or {}
+
+    approval = data.get("approval")
+    if not isinstance(approval, dict):
+        errors.append(f"{path.name}: approval must be a mapping")
+        approval = {}
     state = approval.get("state")
     if state and state not in APPROVAL_STATES:
         errors.append(f"{path.name}: unknown approval state {state!r}")
+    history = approval.get("history")
+    if history is not None and not isinstance(history, list):
+        errors.append(f"{path.name}: approval.history must be a list")
+    if state == "approved":
+        if phase != "approved":
+            errors.append(
+                f"{path.name}: approval.state=approved requires phase=approved"
+            )
+        if not _is_non_empty_string(approval.get("approver")):
+            errors.append(
+                f"{path.name}: approval.approver is required when approved"
+            )
+        if not _is_non_empty_string(approval.get("approved_at")):
+            errors.append(
+                f"{path.name}: approval.approved_at is required when approved"
+            )
+    elif phase == "approved":
+        errors.append(
+            f"{path.name}: phase=approved requires approval.state=approved"
+        )
+
+    progress = data.get("progress")
+    if not isinstance(progress, dict):
+        errors.append(f"{path.name}: progress must be a mapping")
+    else:
+        completed = progress.get("section_completed")
+        total = progress.get("section_total")
+        percent = progress.get("percent")
+        if not isinstance(completed, int):
+            errors.append(f"{path.name}: progress.section_completed must be an int")
+        if not isinstance(total, int):
+            errors.append(f"{path.name}: progress.section_total must be an int")
+        if not isinstance(percent, int):
+            errors.append(f"{path.name}: progress.percent must be an int")
+        if isinstance(completed, int) and completed < 0:
+            errors.append(f"{path.name}: progress.section_completed must be >= 0")
+        if isinstance(total, int) and total < 0:
+            errors.append(f"{path.name}: progress.section_total must be >= 0")
+        if isinstance(completed, int) and isinstance(total, int):
+            if completed > total:
+                errors.append(
+                    f"{path.name}: progress.section_completed cannot exceed "
+                    "section_total"
+                )
+            if strict and total <= 0:
+                errors.append(
+                    f"{path.name}: progress.section_total must be > 0 once in review"
+                )
+            if phase == "approved" and completed != total:
+                errors.append(
+                    f"{path.name}: approved artifacts must have completed==total"
+                )
+        if (
+            isinstance(completed, int)
+            and isinstance(total, int)
+            and isinstance(percent, int)
+        ):
+            expected = int(round(100 * completed / total)) if total > 0 else 0
+            if percent != expected:
+                errors.append(
+                    f"{path.name}: progress.percent must be {expected}, got {percent}"
+                )
+
+    upstream_refs = data.get("upstream_refs")
+    if not isinstance(upstream_refs, list):
+        errors.append(f"{path.name}: upstream_refs must be a list")
+    downstream_refs = data.get("downstream_refs")
+    if not isinstance(downstream_refs, list):
+        errors.append(f"{path.name}: downstream_refs must be a list")
+
     doc_rel = data.get("document_path")
-    if doc_rel:
+    if doc_rel and not isinstance(doc_rel, str):
+        errors.append(f"{path.name}: document_path must be a string")
+    elif doc_rel:
         doc_path = path.parent / doc_rel
         if not doc_path.exists():
             errors.append(f"{path.name}: document_path missing: {doc_rel}")
+    return errors
+
+
+def _validate_requirements(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    frs = data.get("functional_requirements")
+    nfrs = data.get("non_functional_requirements")
+
+    if not isinstance(frs, list):
+        errors.append(f"{path.name}: functional_requirements must be a list")
+        frs = []
+    if not isinstance(nfrs, list):
+        errors.append(f"{path.name}: non_functional_requirements must be a list")
+        nfrs = []
+    if strict and not frs and not nfrs:
+        errors.append(
+            f"{path.name}: in_review requirements artifacts must contain at least "
+            "one FR or NFR"
+        )
+
+    errors.extend(_validate_id_sequence(frs, key="id", pattern=FR_ID_RE, path=path))
+    errors.extend(
+        _validate_id_sequence(nfrs, key="id", pattern=NFR_ID_RE, path=path)
+    )
+
+    for item in frs:
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: functional_requirements rows must be mappings")
+            continue
+        for field in ("title", "description", "source"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {item.get('id', '?')} missing {field}")
+        if item.get("priority") not in MOSCOW_PRIORITIES:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} has invalid priority "
+                f"{item.get('priority')!r}"
+            )
+        if not _is_string_list(item.get("acceptance_criteria"), min_items=1):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} must have at least one "
+                "acceptance criterion"
+            )
+        dependencies = item.get("dependencies", [])
+        if dependencies != [] and not _is_string_list(dependencies):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} dependencies must be a list "
+                "of non-empty strings"
+            )
+
+    for item in nfrs:
+        if not isinstance(item, dict):
+            errors.append(
+                f"{path.name}: non_functional_requirements rows must be mappings"
+            )
+            continue
+        for field in ("category", "title", "description", "source"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {item.get('id', '?')} missing {field}")
+        if item.get("priority") not in MOSCOW_PRIORITIES:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} has invalid priority "
+                f"{item.get('priority')!r}"
+            )
+        criteria = item.get("acceptance_criteria")
+        if not _is_string_list(criteria, min_items=1):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} must have at least one "
+                "acceptance criterion"
+            )
+        else:
+            assert isinstance(criteria, list)
+            if not any(_has_measurement(criterion) for criterion in criteria):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} must include a measurable "
+                    "acceptance criterion"
+                )
+
+    return errors
+
+
+def _validate_constraints(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    constraints = data.get("constraints")
+    if not isinstance(constraints, list):
+        errors.append(f"{path.name}: constraints must be a list")
+        constraints = []
+    if strict and not constraints:
+        errors.append(
+            f"{path.name}: in_review constraints artifacts must contain at least "
+            "one constraint"
+        )
+
+    errors.extend(
+        _validate_id_sequence(constraints, key="id", pattern=CON_ID_RE, path=path)
+    )
+    for item in constraints:
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: constraint rows must be mappings")
+            continue
+        for field in ("title", "description", "rationale", "impact"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {item.get('id', '?')} missing {field}")
+        if item.get("type") not in CONSTRAINT_TYPES:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} has invalid type "
+                f"{item.get('type')!r}"
+            )
+        if item.get("flexibility") not in CONSTRAINT_FLEXIBILITY:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} has invalid flexibility "
+                f"{item.get('flexibility')!r}"
+            )
+    return errors
+
+
+def _validate_quality_attributes(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    attributes = data.get("quality_attributes")
+    if not isinstance(attributes, list):
+        errors.append(f"{path.name}: quality_attributes must be a list")
+        attributes = []
+    if strict and not attributes:
+        errors.append(
+            f"{path.name}: in_review quality-attributes artifacts must contain "
+            "at least one quality attribute"
+        )
+
+    priorities: set[int] = set()
+    for index, item in enumerate(attributes, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: quality_attributes rows must be mappings")
+            continue
+        for field in ("attribute", "description", "metric", "trade_off_notes"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(
+                    f"{path.name}: quality_attributes row {index} missing {field}"
+                )
+        priority = item.get("priority")
+        if not isinstance(priority, int) or priority <= 0:
+            errors.append(
+                f"{path.name}: quality_attributes row {index} has invalid priority "
+                f"{priority!r}"
+            )
+        elif priority in priorities:
+            errors.append(
+                f"{path.name}: duplicate quality attribute priority {priority}"
+            )
+        else:
+            priorities.add(priority)
+        metric = item.get("metric")
+        if _is_non_empty_string(metric) and not _has_measurement(str(metric)):
+            errors.append(
+                f"{path.name}: quality_attributes row {index} metric must be "
+                "measurable"
+            )
+    return errors
+
+
+def _validate_section_payload(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    section = data.get("section")
+    if section == "requirements":
+        return _validate_requirements(data, path, strict=strict)
+    if section == "constraints":
+        return _validate_constraints(data, path, strict=strict)
+    if section == "quality-attributes":
+        return _validate_quality_attributes(data, path, strict=strict)
+    return []
+
+
+def _validate_artifact(
+    data: dict[str, Any], path: Path, *, strict: bool | None = None
+) -> list[str]:
+    approval = data.get("approval") or {}
+    if strict is None:
+        strict = (
+            data.get("phase") in {"in_review", "approved"}
+            or approval.get("state") == "approved"
+        )
+    errors = _validate_meta(data, path, strict=strict)
+    errors.extend(_validate_section_payload(data, path, strict=strict))
     return errors
 
 
@@ -442,7 +769,14 @@ def _validate_traceability(all_data: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    files = all_meta_files()
+    if args.artifact_id:
+        try:
+            files = [find_meta_by_id(args.artifact_id)]
+        except FileNotFoundError as e:
+            sys.stderr.write(f"error: {e}\n")
+            return 2
+    else:
+        files = all_meta_files()
     if not files:
         print("(no artifacts yet — nothing to validate)")
         return 0
@@ -455,9 +789,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         except Exception as e:
             errors.append(f"{p.name}: unreadable ({e})")
             continue
-        if args.artifact_id and data.get("artifact_id") != args.artifact_id:
-            continue
-        errors.extend(_validate_meta(data, p))
+        errors.extend(_validate_artifact(data, p))
         aid = data.get("artifact_id")
         if isinstance(aid, str):
             loaded[aid] = data
