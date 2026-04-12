@@ -1,0 +1,43 @@
+# Metadata skeleton for the Component Relationships section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: EX-CMP-000
+section: components
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: EX-CMP-000.md
+
+# Structured fields — scripts and downstream skills parse these.
+components: []
+# - id: CM-001
+#   name: API Handler
+#   path: src/api/
+#   type: handler       # service | library | handler | model | config | util | test
+#   responsibility: "Handles HTTP request routing and response formatting"
+#   dependencies_internal: [CM-002, CM-003]
+#   dependencies_external: [express, cors]
+#   dependents: []
+#   api_surface:
+#     - type: HTTP
+#       endpoint: /api/users
+#       methods: [GET, POST]
+#   patterns_detected: [middleware]
+
+circular_dependencies: []
+# - cycle: [CM-001, CM-002, CM-001]
+#   description: "..."
+
+cross_cutting_concerns: []
+# - concern: authentication
+#   implementation: middleware
+#   components: [CM-001, CM-003]

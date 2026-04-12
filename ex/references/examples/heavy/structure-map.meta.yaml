@@ -1,0 +1,76 @@
+artifact_id: EX-STR-001
+section: structure-map
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - re
+  - impl
+  - qa
+document_path: EX-STR-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+project_root: /home/user/projects/ecommerce-platform
+file_count:
+  total: 187
+  by_category:
+    source: 132
+    config: 18
+    test: 24
+    documentation: 3
+    static_asset: 10
+directory_conventions:
+  - "Monorepo: apps/ for deployable applications, packages/ for shared code"
+  - "apps/web: Next.js App Router with route groups (auth), (shop), admin"
+  - "apps/api: layered — routes -> services -> models with Prisma ORM"
+  - "packages/shared: cross-app types and validators"
+entry_points:
+  - file: apps/web/src/app/layout.tsx
+    role: frontend root layout
+    evidence: "Next.js App Router root layout"
+  - file: apps/api/src/index.ts
+    role: backend server entry
+    evidence: "Express app.listen()"
+  - file: apps/api/src/jobs/orderProcessor.ts
+    role: background worker
+    evidence: "Bull queue processor"
+config_files:
+  - file: package.json
+    role: workspace manager
+    evidence: "workspaces field"
+  - file: turbo.json
+    role: build orchestrator
+    evidence: "Turborepo pipeline"
+  - file: apps/api/prisma/schema.prisma
+    role: database schema
+    evidence: "Prisma ORM"
+  - file: docker-compose.yml
+    role: service orchestration
+    evidence: "PostgreSQL + Redis + app"
+  - file: .github/workflows/ci.yml
+    role: CI pipeline
+    evidence: "GitHub Actions"
+ignored_patterns:
+  - node_modules/
+  - .git/
+  - .next/
+  - dist/
+  - coverage/
+  - .turbo/
+  - .env
+depth_mode: heavy
+depth_evidence: "187 files, 1 language (TypeScript) but 3 frameworks (Next.js, Express, Prisma), max depth 5 — exceeds lite thresholds"

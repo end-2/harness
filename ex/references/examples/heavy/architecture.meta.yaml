@@ -1,0 +1,107 @@
+artifact_id: EX-ARC-001
+section: architecture
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - arch
+  - re
+  - qa
+document_path: EX-ARC-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+architecture_style: modular-monolith
+style_confidence: high
+style_evidence: "Monorepo with workspace packages, single shared PostgreSQL, no inter-service protocol, Turborepo single build."
+layer_structure:
+  - layer: presentation
+    components: [CM-002]
+    responsibility: HTTP handling
+  - layer: business
+    components: [CM-003]
+    responsibility: Domain logic
+  - layer: data
+    components: [CM-004]
+    responsibility: Database access
+  - layer: cross-cutting
+    components: [CM-005]
+    responsibility: Auth, rate limiting, error handling
+  - layer: background
+    components: [CM-006]
+    responsibility: Async processing
+
+communication_patterns:
+  - pattern: REST
+    evidence: "Next.js fetch calls to Express API"
+    components: [CM-001, CM-002]
+  - pattern: Queue
+    evidence: "Bull queue with Redis backend"
+    components: [CM-003, CM-006]
+  - pattern: Webhook
+    evidence: "Stripe webhook endpoint"
+    components: [CM-002]
+
+data_stores:
+  - name: PostgreSQL
+    type: RDBMS
+    access_pattern: ORM (Prisma)
+    components: [CM-004]
+    evidence: "prisma/schema.prisma, docker-compose.yml"
+  - name: Redis
+    type: in-memory
+    access_pattern: Direct client + Bull queue backend
+    components: [CM-006]
+    evidence: "docker-compose.yml, ioredis"
+
+cross_cutting_concerns:
+  - concern: authentication
+    pattern: JWT middleware
+    evidence: apps/api/src/middleware/auth.ts
+  - concern: validation
+    pattern: Zod schemas
+    evidence: packages/shared/src/validators/
+  - concern: rate limiting
+    pattern: express middleware
+    evidence: apps/api/src/middleware/rateLimit.ts
+  - concern: error handling
+    pattern: centralized middleware
+    evidence: apps/api/src/middleware/errorHandler.ts
+  - concern: logging
+    pattern: structured (Winston)
+    evidence: apps/api/src/utils/logger.ts
+
+test_patterns:
+  unit_framework: Jest
+  integration_tests: true
+  e2e_tests: false
+  coverage_config: false
+  test_organization: colocated
+
+build_deploy_patterns:
+  build_tool: Turborepo + tsc
+  container: Docker Compose
+  ci_cd: GitHub Actions
+  iac: null
+  deploy_target: "container-based, AWS ECR (inferred)"
+
+token_budget_summary:
+  target_budget: 4000
+  actual_estimate: 3800
+  compressions_applied:
+    - "Grouped 42 web components into summary"
+    - "Truncated migration listing to count only"
+    - "Collapsed config table from 12 to 7 entries"

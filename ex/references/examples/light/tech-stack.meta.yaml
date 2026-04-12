@@ -1,0 +1,76 @@
+artifact_id: EX-TS-001
+section: tech-stack
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - arch
+  - impl
+  - qa
+document_path: EX-TS-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+technologies:
+  - id: TS-001
+    category: language
+    name: TypeScript
+    version: "5.3.3"
+    evidence: "package.json devDependencies.typescript"
+    role: primary language
+    config_location: tsconfig.json
+  - id: TS-002
+    category: framework
+    name: Express
+    version: "4.18.2"
+    evidence: "package.json dependencies.express"
+    role: web framework
+    config_location: null
+  - id: TS-003
+    category: database
+    name: better-sqlite3
+    version: "9.4.3"
+    evidence: "package.json dependencies"
+    role: database driver
+    config_location: null
+  - id: TS-004
+    category: database
+    name: SQLite
+    version: null
+    evidence: "better-sqlite3 dependency, .env.example DATABASE_PATH"
+    role: persistence
+    config_location: .env.example
+  - id: TS-005
+    category: lint
+    name: ESLint
+    version: "8.56.0"
+    evidence: "package.json devDependencies, .eslintrc.json"
+    role: linter
+    config_location: .eslintrc.json
+  - id: TS-006
+    category: test
+    name: Jest
+    version: "29.7.0"
+    evidence: "package.json devDependencies, jest.config.ts"
+    role: test framework
+    config_location: jest.config.ts
+  - id: TS-007
+    category: container
+    name: Docker
+    version: null
+    evidence: "Dockerfile at project root"
+    role: containerization
+    config_location: Dockerfile

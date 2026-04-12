@@ -1,0 +1,67 @@
+# Component Relationships
+
+<!--
+This document maps modules, their dependencies, API surfaces, and detected
+design patterns. Fill in the sections below. Do not remove section headers.
+
+ID convention: CM-001, CM-002, ...
+-->
+
+## 1. Overview
+
+<!-- One paragraph: total component count, dominant patterns, notable coupling observations. -->
+
+## 2. Component Catalog
+
+### CM-001: <!-- Component Name -->
+
+| Field | Value |
+|-------|-------|
+| **Path** | <!-- filesystem path --> |
+| **Type** | <!-- service / library / handler / model / config / util / test --> |
+| **Responsibility** | <!-- inferred from exports/public interface --> |
+| **Internal Dependencies** | <!-- CM-NNN, CM-NNN --> |
+| **External Dependencies** | <!-- package names --> |
+| **Dependents** | <!-- CM-NNN, CM-NNN (who depends on this) --> |
+| **API Surface** | <!-- HTTP routes / gRPC services / event handlers / exports --> |
+| **Patterns Detected** | <!-- Repository / Factory / Observer / Middleware / ... --> |
+
+<!--
+Repeat the component card template above for each component.
+In lite mode, include only top-level directory-based components.
+In heavy mode, include individual modules with full dependency detail.
+-->
+
+## 3. Dependency Graph
+
+<!--
+Mermaid diagram showing component relationships.
+In lite mode, a simple graph of top-level directories is sufficient.
+In heavy mode, show module-level dependencies with edge labels.
+-->
+
+```mermaid
+graph LR
+    %% Replace with actual dependency graph
+    CM-001 --> CM-002
+    CM-001 --> CM-003
+    CM-002 --> CM-004
+```
+
+## 4. API Surfaces
+
+| Component | Type | Endpoint / Interface | Method | Description |
+|-----------|------|---------------------|--------|-------------|
+| <!-- CM-NNN --> | <!-- HTTP / gRPC / event / CLI --> | <!-- /api/users --> | <!-- GET --> | <!-- description --> |
+
+## 5. Circular Dependencies
+
+<!-- List any detected circular dependencies. Empty section means none found. -->
+
+- <!-- CM-NNN <-> CM-NNN: description of the cycle -->
+
+## 6. Cross-Cutting Concerns
+
+| Concern | Implementation | Components Affected |
+|---------|---------------|-------------------|
+| <!-- auth / logging / error handling / ... --> | <!-- middleware / decorator / module --> | <!-- CM-NNN, CM-NNN --> |

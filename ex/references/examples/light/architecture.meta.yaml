@@ -1,0 +1,81 @@
+artifact_id: EX-ARC-001
+section: architecture
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - arch
+  - re
+  - qa
+document_path: EX-ARC-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+architecture_style: layered
+style_confidence: medium
+style_evidence: "Directory structure shows routes -> models separation. Single Dockerfile. Lite mode — deeper import analysis not performed."
+layer_structure:
+  - layer: presentation
+    components: [CM-001]
+    responsibility: HTTP request handling
+  - layer: domain
+    components: [CM-002]
+    responsibility: Data logic
+  - layer: cross-cutting
+    components: [CM-003]
+    responsibility: Auth, error handling
+
+communication_patterns:
+  - pattern: REST
+    evidence: "Express route definitions in src/routes/"
+    components: [CM-001]
+
+data_stores:
+  - name: SQLite
+    type: RDBMS
+    access_pattern: Direct driver (better-sqlite3)
+    components: [CM-002]
+    evidence: "package.json dependency, .env.example DATABASE_PATH"
+
+cross_cutting_concerns:
+  - concern: authentication
+    pattern: middleware
+    evidence: src/middleware/auth.ts
+  - concern: error handling
+    pattern: middleware
+    evidence: src/middleware/errorHandler.ts
+  - concern: logging
+    pattern: utility module
+    evidence: src/utils/logger.ts
+
+test_patterns:
+  unit_framework: Jest
+  integration_tests: true
+  e2e_tests: false
+  coverage_config: false
+  test_organization: separate
+
+build_deploy_patterns:
+  build_tool: tsc
+  container: Docker
+  ci_cd: null
+  iac: null
+  deploy_target: container-based (inferred)
+
+token_budget_summary:
+  target_budget: 4000
+  actual_estimate: 1800
+  compressions_applied: []

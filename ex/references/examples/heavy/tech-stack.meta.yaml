@@ -1,0 +1,132 @@
+artifact_id: EX-TS-001
+section: tech-stack
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - arch
+  - impl
+  - qa
+document_path: EX-TS-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+technologies:
+  - id: TS-001
+    category: language
+    name: TypeScript
+    version: "5.4.2"
+    evidence: "All package.json devDependencies"
+    role: primary language (frontend + backend)
+    config_location: tsconfig.json
+  - id: TS-002
+    category: framework
+    name: Next.js
+    version: "14.1.0"
+    evidence: "apps/web/package.json, next.config.mjs"
+    role: frontend framework
+    config_location: apps/web/next.config.mjs
+  - id: TS-003
+    category: framework
+    name: React
+    version: "18.2.0"
+    evidence: "apps/web/package.json, JSX/TSX files"
+    role: UI library
+    config_location: null
+  - id: TS-004
+    category: framework
+    name: Express
+    version: "4.18.2"
+    evidence: "apps/api/package.json, src/index.ts"
+    role: backend framework
+    config_location: null
+  - id: TS-005
+    category: framework
+    name: Prisma
+    version: "5.9.1"
+    evidence: "apps/api/package.json, prisma/schema.prisma"
+    role: ORM
+    config_location: apps/api/prisma/schema.prisma
+  - id: TS-006
+    category: framework
+    name: Zustand
+    version: "4.5.0"
+    evidence: "apps/web/package.json, src/stores/*.ts"
+    role: state management
+    config_location: null
+  - id: TS-007
+    category: framework
+    name: Bull
+    version: "4.12.2"
+    evidence: "apps/api/package.json, src/jobs/"
+    role: job queue
+    config_location: null
+  - id: TS-008
+    category: framework
+    name: Zod
+    version: "3.22.4"
+    evidence: "packages/shared/package.json"
+    role: schema validation
+    config_location: null
+  - id: TS-009
+    category: database
+    name: PostgreSQL
+    version: "15"
+    evidence: "prisma/schema.prisma provider, docker-compose.yml"
+    role: primary database
+    config_location: .env
+  - id: TS-010
+    category: database
+    name: Redis
+    version: "7"
+    evidence: "ioredis in package.json, docker-compose.yml"
+    role: cache + queue backend
+    config_location: .env
+  - id: TS-011
+    category: build
+    name: Turborepo
+    version: "1.12.4"
+    evidence: "turbo.json, root package.json"
+    role: monorepo build orchestration
+    config_location: turbo.json
+  - id: TS-012
+    category: lint
+    name: ESLint
+    version: "8.56.0"
+    evidence: ".eslintrc.json"
+    role: linter
+    config_location: .eslintrc.json
+  - id: TS-013
+    category: test
+    name: Jest
+    version: "29.7.0"
+    evidence: "jest.config.ts in api + web"
+    role: test framework
+    config_location: jest.config.ts
+  - id: TS-014
+    category: ci
+    name: GitHub Actions
+    version: null
+    evidence: ".github/workflows/"
+    role: CI/CD
+    config_location: .github/workflows/
+  - id: TS-015
+    category: container
+    name: Docker
+    version: null
+    evidence: "docker-compose.yml, Dockerfiles"
+    role: container orchestration
+    config_location: docker-compose.yml

@@ -36,8 +36,8 @@ except ImportError:
 
 
 def _session_id() -> str | None:
-    """Return the current CLAUDE_SESSION_ID from the environment, or None."""
-    return os.environ.get("CLAUDE_SESSION_ID")
+    """Return the current SESSION_ID from the environment, or None."""
+    return os.environ.get("SESSION_ID")
 
 
 def _append_history(

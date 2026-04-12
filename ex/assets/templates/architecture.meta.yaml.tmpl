@@ -1,0 +1,63 @@
+# Metadata skeleton for the Architecture Inference section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: EX-ARC-000
+section: architecture
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: EX-ARC-000.md
+
+# Structured fields — scripts and downstream skills parse these.
+architecture_style: null          # monolithic | modular-monolith | microservices | serverless | layered | hexagonal | event-driven
+style_confidence: null            # high | medium | low
+style_evidence: null
+layer_structure: []
+# - layer: presentation
+#   components: [CM-001]
+#   responsibility: "HTTP request handling"
+
+communication_patterns: []
+# - pattern: REST
+#   evidence: "express router definitions in src/routes/"
+#   components: [CM-001, CM-002]
+
+data_stores: []
+# - name: PostgreSQL
+#   type: RDBMS
+#   access_pattern: ORM (Prisma)
+#   components: [CM-003]
+#   evidence: "prisma/schema.prisma with postgresql provider"
+
+cross_cutting_concerns: []
+# - concern: authentication
+#   pattern: middleware
+#   evidence: "src/middleware/auth.ts"
+
+test_patterns:
+  unit_framework: null
+  integration_tests: false
+  e2e_tests: false
+  coverage_config: false
+  test_organization: null       # mirrored | colocated | separate
+
+build_deploy_patterns:
+  build_tool: null
+  container: null
+  ci_cd: null
+  iac: null
+  deploy_target: null
+
+token_budget_summary:
+  target_budget: 4000
+  actual_estimate: null
+  compressions_applied: []

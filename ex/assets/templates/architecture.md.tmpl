@@ -1,0 +1,79 @@
+# Architecture Inference
+
+<!--
+This document presents the inferred architectural characteristics of the codebase.
+All inferences include evidence — the structural signals that led to each conclusion.
+Fill in the sections below. Do not remove section headers.
+-->
+
+## 1. Overview
+
+<!-- One paragraph: inferred architecture style, confidence level, key structural signals. -->
+
+## 2. Architecture Style
+
+| Field | Value |
+|-------|-------|
+| **Style** | <!-- monolithic / modular-monolith / microservices / serverless / layered / hexagonal / event-driven --> |
+| **Confidence** | <!-- high / medium / low --> |
+| **Evidence** | <!-- structural signals that led to this conclusion --> |
+
+## 3. Layer Structure
+
+<!--
+Describe the detected layering. If no clear layers exist, note that.
+Example: presentation -> business -> data access -> persistence
+-->
+
+| Layer | Components | Responsibility |
+|-------|-----------|----------------|
+| <!-- presentation / API / business / data / infrastructure --> | <!-- CM-NNN, CM-NNN --> | <!-- what this layer does --> |
+
+## 4. Communication Patterns
+
+| Pattern | Evidence | Components Involved |
+|---------|----------|-------------------|
+| <!-- REST / gRPC / event bus / message queue / DB sharing / file-based / ... --> | <!-- how detected --> | <!-- CM-NNN, CM-NNN --> |
+
+## 5. Data Stores
+
+| Store | Type | Access Pattern | Components | Evidence |
+|-------|------|---------------|-----------|----------|
+| <!-- name --> | <!-- RDBMS / NoSQL / cache / file / ... --> | <!-- ORM / raw SQL / ODM / ... --> | <!-- CM-NNN --> | <!-- how detected --> |
+
+## 6. Cross-Cutting Concerns
+
+| Concern | Pattern | Evidence |
+|---------|---------|----------|
+| Authentication | <!-- middleware / decorator / guard / ... --> | <!-- file:pattern --> |
+| Logging | <!-- structured / unstructured / framework-provided --> | <!-- file:pattern --> |
+| Error Handling | <!-- centralized / per-handler / middleware --> | <!-- file:pattern --> |
+| <!-- other --> | <!-- pattern --> | <!-- evidence --> |
+
+## 7. Test Patterns
+
+| Aspect | Value | Evidence |
+|--------|-------|----------|
+| **Unit test framework** | <!-- name --> | <!-- config file --> |
+| **Integration tests** | <!-- present / absent --> | <!-- location --> |
+| **E2E tests** | <!-- present / absent --> | <!-- location --> |
+| **Coverage config** | <!-- present / absent --> | <!-- config file --> |
+| **Test organization** | <!-- mirrored / colocated / separate --> | <!-- directory structure --> |
+
+## 8. Build & Deploy Patterns
+
+| Aspect | Value | Evidence |
+|--------|-------|----------|
+| **Build tool** | <!-- name --> | <!-- config file --> |
+| **Container** | <!-- Dockerfile / docker-compose / none --> | <!-- location --> |
+| **CI/CD** | <!-- GitHub Actions / GitLab CI / Jenkins / ... --> | <!-- config file --> |
+| **IaC** | <!-- Terraform / CloudFormation / Pulumi / none --> | <!-- location --> |
+| **Deploy target** | <!-- inferred from configs --> | <!-- evidence --> |
+
+## 9. Token Budget Summary
+
+| Metric | Value |
+|--------|-------|
+| **Target budget** | <!-- N tokens --> |
+| **Actual estimate** | <!-- N tokens --> |
+| **Compression applied** | <!-- list of compressions: grouped N similar files, truncated M low-priority sections --> |

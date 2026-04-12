@@ -1,0 +1,159 @@
+artifact_id: EX-CMP-001
+section: components
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - arch
+  - impl
+  - sec
+document_path: EX-CMP-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+components:
+  - id: CM-001
+    name: Web App
+    path: apps/web/src/
+    type: service
+    responsibility: "Next.js frontend"
+    dependencies_internal: [CM-009]
+    dependencies_external: [next, react, zustand, tailwindcss]
+    dependents: []
+    api_surface:
+      - type: HTTP
+        endpoint: /api/auth/*
+        methods: [POST]
+      - type: HTTP
+        endpoint: /api/products/*
+        methods: [GET]
+    patterns_detected: [component-composition]
+  - id: CM-002
+    name: API Routes
+    path: apps/api/src/routes/
+    type: handler
+    responsibility: "HTTP endpoint definitions"
+    dependencies_internal: [CM-003, CM-005, CM-009]
+    dependencies_external: [express, zod]
+    dependents: []
+    api_surface:
+      - type: HTTP
+        endpoint: /api/auth/*
+        methods: [POST]
+      - type: HTTP
+        endpoint: /api/products/*
+        methods: [GET, POST, PUT, DELETE]
+      - type: HTTP
+        endpoint: /api/orders/*
+        methods: [GET, POST, PUT]
+      - type: HTTP
+        endpoint: /api/payments/webhook
+        methods: [POST]
+    patterns_detected: [router, input-validation]
+  - id: CM-003
+    name: Services
+    path: apps/api/src/services/
+    type: service
+    responsibility: "Business logic"
+    dependencies_internal: [CM-004, CM-007]
+    dependencies_external: [stripe, nodemailer]
+    dependents: [CM-002, CM-006]
+    api_surface: []
+    patterns_detected: [service-layer, dependency-injection]
+  - id: CM-004
+    name: Models
+    path: apps/api/src/models/
+    type: model
+    responsibility: "Prisma data access"
+    dependencies_internal: []
+    dependencies_external: ["@prisma/client"]
+    dependents: [CM-003]
+    api_surface: []
+    patterns_detected: [repository]
+  - id: CM-005
+    name: Middleware
+    path: apps/api/src/middleware/
+    type: library
+    responsibility: "Auth, validation, rate limiting, error handling"
+    dependencies_internal: [CM-007]
+    dependencies_external: [jsonwebtoken, express-rate-limit]
+    dependents: [CM-002]
+    api_surface: []
+    patterns_detected: [middleware, guard]
+  - id: CM-006
+    name: Background Jobs
+    path: apps/api/src/jobs/
+    type: service
+    responsibility: "Async order processing, email, inventory sync"
+    dependencies_internal: [CM-003, CM-007]
+    dependencies_external: [bull]
+    dependents: []
+    api_surface:
+      - type: queue
+        endpoint: order-processing
+        methods: []
+      - type: queue
+        endpoint: email-sending
+        methods: []
+    patterns_detected: [queue-consumer, worker]
+  - id: CM-007
+    name: Utils
+    path: apps/api/src/utils/
+    type: util
+    responsibility: "Logger, crypto, pagination"
+    dependencies_internal: []
+    dependencies_external: [winston]
+    dependents: [CM-003, CM-005, CM-006]
+    api_surface: []
+    patterns_detected: []
+  - id: CM-008
+    name: Tests
+    path: "**/*.test.{ts,tsx}"
+    type: test
+    responsibility: "Unit and integration tests"
+    dependencies_internal: [CM-001, CM-002, CM-003]
+    dependencies_external: [jest, supertest, "@testing-library/react"]
+    dependents: []
+    api_surface: []
+    patterns_detected: []
+  - id: CM-009
+    name: Shared Package
+    path: packages/shared/src/
+    type: library
+    responsibility: "Cross-app types, validators, constants"
+    dependencies_internal: []
+    dependencies_external: [zod]
+    dependents: [CM-001, CM-002]
+    api_surface: []
+    patterns_detected: [shared-kernel]
+
+circular_dependencies: []
+cross_cutting_concerns:
+  - concern: authentication
+    implementation: JWT middleware
+    components: [CM-002]
+  - concern: validation
+    implementation: Zod schemas via middleware
+    components: [CM-002, CM-009]
+  - concern: rate limiting
+    implementation: express-rate-limit
+    components: [CM-002]
+  - concern: error handling
+    implementation: centralized error middleware
+    components: [CM-002]
+  - concern: logging
+    implementation: Winston logger
+    components: [CM-003, CM-005, CM-006, CM-007]

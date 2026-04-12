@@ -1,0 +1,95 @@
+artifact_id: EX-CMP-001
+section: components
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: "2026-04-12T10:00:00Z"
+  notes: null
+  history:
+    - state: approved
+      approver: user
+      at: "2026-04-12T10:00:00Z"
+      notes: null
+upstream_refs: []
+downstream_refs:
+  - arch
+  - impl
+  - sec
+document_path: EX-CMP-001.md
+created_at: "2026-04-12T09:50:00Z"
+updated_at: "2026-04-12T10:00:00Z"
+
+components:
+  - id: CM-001
+    name: Routes
+    path: src/routes/
+    type: handler
+    responsibility: HTTP endpoint definitions
+    dependencies_internal: [CM-002, CM-003, CM-004]
+    dependencies_external: [express]
+    dependents: [CM-005]
+    api_surface:
+      - type: HTTP
+        endpoint: /api/todos
+        methods: [GET, POST]
+      - type: HTTP
+        endpoint: /api/todos/:id
+        methods: [GET, PUT, DELETE]
+      - type: HTTP
+        endpoint: /health
+        methods: [GET]
+    patterns_detected: []
+  - id: CM-002
+    name: Models
+    path: src/models/
+    type: model
+    responsibility: Todo data structure and DB access
+    dependencies_internal: []
+    dependencies_external: [better-sqlite3]
+    dependents: [CM-001]
+    api_surface: []
+    patterns_detected: []
+  - id: CM-003
+    name: Middleware
+    path: src/middleware/
+    type: library
+    responsibility: Auth and error handling middleware
+    dependencies_internal: []
+    dependencies_external: []
+    dependents: [CM-001]
+    api_surface: []
+    patterns_detected: [middleware]
+  - id: CM-004
+    name: Utils
+    path: src/utils/
+    type: util
+    responsibility: Logger utility
+    dependencies_internal: []
+    dependencies_external: []
+    dependents: [CM-001]
+    api_surface: []
+    patterns_detected: []
+  - id: CM-005
+    name: Tests
+    path: tests/
+    type: test
+    responsibility: Route tests
+    dependencies_internal: [CM-001]
+    dependencies_external: [jest, supertest]
+    dependents: []
+    api_surface: []
+    patterns_detected: []
+
+circular_dependencies: []
+cross_cutting_concerns:
+  - concern: authentication
+    implementation: middleware
+    components: [CM-001]
+  - concern: error handling
+    implementation: middleware
+    components: [CM-001]
