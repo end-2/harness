@@ -66,7 +66,11 @@ items:                                           # structured findings
 - `report_id`, `kind`, `skill`, `stage`, `created_at`, `target_refs`, `verdict`, `summary` are **required**.
 - `summary` must be non-empty. An empty summary fails `artifact.py report validate` — this is intentional so subagents cannot "complete" a report by filling only the frontmatter shell.
 - `target_refs` is a list even when a single artifact is targeted.
-- `proposed_meta_ops` is a list of dicts; each has a `cmd` key matching one of `set-progress`, `set-phase`, `link`, `approve`. The main agent applies them by calling the corresponding `artifact.py` subcommand — **the subagent must never call `artifact.py` to change metadata directly.**
+- `proposed_meta_ops` is a list of dicts with a stage-scoped allow-list:
+  - `adr`: `link`, `set-progress`
+  - `diagram`: `link`, `set-progress`, optional `set-phase: in_review`
+  - `review`: `link`, `set-progress` only
+  `approve` is never allowed in a subagent report. The main agent applies accepted ops by calling the corresponding `artifact.py` subcommand — **the subagent must never call `artifact.py` to change metadata directly.**
 - `items` is a list of structured findings. The allowed `classification` values depend on the stage:
   - `adr` (kind `adr-draft`): `adr_drafted`, `context_missing`, `alternatives_missing`, `consequences_missing`
   - `diagram` (kind `diagram-draft`): `diagram_drafted`, `caption_missing`, `driver_untraced`
@@ -124,7 +128,7 @@ When spawning a subagent stage, the main agent:
    - Runs `artifact.py report show <report_id>` to read the full report.
    - For `adr-draft` / `diagram-draft`: applies the body content to the target artifact's `.md` via `Edit`.
    - For `review`: walks the user through `items` and decides which `proposed_meta_ops` to apply.
-4. Phase transitions (`set-phase`, `approve`) are **never** included in `proposed_meta_ops` without the user's explicit go-ahead — the main agent is the only component allowed to gate those.
+4. `approve` is **never** included in `proposed_meta_ops`. `set-phase` is only allowed for the `diagram` stage, and only as `in_review`; the main agent still decides whether to apply it.
 
 ## Subagent protocol
 

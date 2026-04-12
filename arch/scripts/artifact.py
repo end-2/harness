@@ -11,6 +11,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -57,8 +58,31 @@ REQUIRED_META_FIELDS = (
     "upstream_refs",
     "downstream_refs",
     "document_path",
+    "created_at",
     "updated_at",
 )
+
+DECISION_STATUSES = {"Proposed", "Accepted", "Deprecated"}
+COMPONENT_TYPES = {"service", "library", "gateway", "store", "queue", "job"}
+INTERFACE_DIRECTIONS = {"inbound", "outbound"}
+TECH_CATEGORIES = {
+    "language",
+    "framework",
+    "database",
+    "messaging",
+    "infra",
+    "observability",
+    "auth",
+    "other",
+}
+DIAGRAM_TYPES = {"c4-context", "c4-container", "sequence", "data-flow"}
+DIAGRAM_FORMATS = {"mermaid"}
+
+ARCH_ARTIFACT_ID_RE = re.compile(r"^ARCH-(DEC|COMP|TECH|DIAG)-\d{3}$")
+AD_ID_RE = re.compile(r"^AD-\d{3}$")
+COMP_ID_RE = re.compile(r"^COMP-\d{3}$")
+CON_ID_RE = re.compile(r"^CON-\d{3}$")
+SUPERSEDED_STATUS_RE = re.compile(r"^Superseded by AD-\d{3}$")
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +155,65 @@ def find_meta_by_id(artifact_id: str) -> Path:
 
 def all_meta_files() -> list[Path]:
     return sorted(artifacts_dir().glob("*.meta.yaml"))
+
+
+def _is_non_empty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_string_list(value: Any, *, min_items: int = 0) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) >= min_items
+        and all(_is_non_empty_string(item) for item in value)
+    )
+
+
+def _validate_id_sequence(
+    values: list[dict[str, Any]],
+    *,
+    key: str,
+    pattern: re.Pattern[str],
+    path: Path,
+) -> list[str]:
+    errors: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(values, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: row {index} must be a mapping")
+            continue
+        raw_id = item.get(key)
+        if not _is_non_empty_string(raw_id):
+            errors.append(f"{path.name}: row {index} missing {key!r}")
+            continue
+        assert isinstance(raw_id, str)
+        if not pattern.match(raw_id):
+            errors.append(f"{path.name}: invalid {key} {raw_id!r}")
+        if raw_id in seen:
+            errors.append(f"{path.name}: duplicate {key} {raw_id!r}")
+        seen.add(raw_id)
+    return errors
+
+
+def _is_decision_status(value: Any) -> bool:
+    return isinstance(value, str) and (
+        value in DECISION_STATUSES or bool(SUPERSEDED_STATUS_RE.match(value))
+    )
+
+
+def _is_internal_arch_ref(ref: Any) -> bool:
+    return isinstance(ref, str) and bool(ARCH_ARTIFACT_ID_RE.match(ref))
+
+
+def _load_internal_ref(ref: str) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        other_path = find_meta_by_id(ref)
+    except FileNotFoundError:
+        return None, f"{ref!r} points to a missing arch artifact"
+    try:
+        return load_meta(other_path), None
+    except Exception as e:  # noqa: BLE001
+        return None, f"{ref!r} could not be loaded ({e})"
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +382,13 @@ def cmd_approve(args: argparse.Namespace) -> int:
             "error: artifact must be in_review before it can be approved\n"
         )
         return 2
+    if target_state == "approved":
+        errors = _validate_artifact(data, meta_path, strict=True)
+        if errors:
+            sys.stderr.write("error: artifact is not review-ready:\n")
+            for error in errors:
+                sys.stderr.write(f"  - {error}\n")
+            return 2
 
     ts = now_iso()
     approval["state"] = target_state
@@ -329,6 +419,21 @@ def cmd_link(args: argparse.Namespace) -> int:
     data = load_meta(meta_path)
     if not args.upstream and not args.downstream:
         sys.stderr.write("error: provide --upstream or --downstream\n")
+        return 2
+    errors: list[str] = []
+    for direction, ref in (("upstream", args.upstream), ("downstream", args.downstream)):
+        if not ref:
+            continue
+        if ref == args.artifact_id:
+            errors.append(f"{direction} ref cannot point to itself: {ref!r}")
+            continue
+        if _is_internal_arch_ref(ref):
+            _other, load_error = _load_internal_ref(ref)
+            if load_error:
+                errors.append(f"{direction} {load_error}")
+    if errors:
+        for error in errors:
+            sys.stderr.write(f"error: {error}\n")
         return 2
     if args.upstream:
         refs = data.setdefault("upstream_refs", [])
@@ -398,26 +503,384 @@ def cmd_list(_args: argparse.Namespace) -> int:
     return 0
 
 
-def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
+def _validate_meta(data: dict[str, Any], path: Path, *, strict: bool) -> list[str]:
     errors: list[str] = []
     for field in REQUIRED_META_FIELDS:
         if field not in data:
             errors.append(f"{path.name}: missing field {field!r}")
+
     phase = data.get("phase")
     if phase not in PHASES:
         errors.append(f"{path.name}: unknown phase {phase!r}")
     section = data.get("section")
     if section not in SECTIONS:
         errors.append(f"{path.name}: unknown section {section!r}")
-    approval = data.get("approval") or {}
+
+    approval = data.get("approval")
+    if not isinstance(approval, dict):
+        errors.append(f"{path.name}: approval must be a mapping")
+        approval = {}
     state = approval.get("state")
     if state and state not in APPROVAL_STATES:
         errors.append(f"{path.name}: unknown approval state {state!r}")
+    history = approval.get("history")
+    if history is not None and not isinstance(history, list):
+        errors.append(f"{path.name}: approval.history must be a list")
+    if state == "approved":
+        if phase != "approved":
+            errors.append(
+                f"{path.name}: approval.state=approved requires phase=approved"
+            )
+        if not _is_non_empty_string(approval.get("approver")):
+            errors.append(
+                f"{path.name}: approval.approver is required when approved"
+            )
+        if not _is_non_empty_string(approval.get("approved_at")):
+            errors.append(
+                f"{path.name}: approval.approved_at is required when approved"
+            )
+    elif phase == "approved":
+        errors.append(
+            f"{path.name}: phase=approved requires approval.state=approved"
+        )
+
+    progress = data.get("progress")
+    if not isinstance(progress, dict):
+        errors.append(f"{path.name}: progress must be a mapping")
+    else:
+        completed = progress.get("section_completed")
+        total = progress.get("section_total")
+        percent = progress.get("percent")
+        if not isinstance(completed, int):
+            errors.append(f"{path.name}: progress.section_completed must be an int")
+        if not isinstance(total, int):
+            errors.append(f"{path.name}: progress.section_total must be an int")
+        if not isinstance(percent, int):
+            errors.append(f"{path.name}: progress.percent must be an int")
+        if isinstance(completed, int) and completed < 0:
+            errors.append(f"{path.name}: progress.section_completed must be >= 0")
+        if isinstance(total, int) and total < 0:
+            errors.append(f"{path.name}: progress.section_total must be >= 0")
+        if isinstance(completed, int) and isinstance(total, int):
+            if completed > total:
+                errors.append(
+                    f"{path.name}: progress.section_completed cannot exceed "
+                    "section_total"
+                )
+            if strict and total <= 0:
+                errors.append(
+                    f"{path.name}: progress.section_total must be > 0 once in review"
+                )
+            if phase == "approved" and completed != total:
+                errors.append(
+                    f"{path.name}: approved artifacts must have completed==total"
+                )
+        if (
+            isinstance(completed, int)
+            and isinstance(total, int)
+            and isinstance(percent, int)
+        ):
+            expected = int(round(100 * completed / total)) if total > 0 else 0
+            if percent != expected:
+                errors.append(
+                    f"{path.name}: progress.percent must be {expected}, got {percent}"
+                )
+
+    upstream_refs = data.get("upstream_refs")
+    if not isinstance(upstream_refs, list):
+        errors.append(f"{path.name}: upstream_refs must be a list")
+    downstream_refs = data.get("downstream_refs")
+    if not isinstance(downstream_refs, list):
+        errors.append(f"{path.name}: downstream_refs must be a list")
+
     doc_rel = data.get("document_path")
-    if doc_rel:
+    if doc_rel and not isinstance(doc_rel, str):
+        errors.append(f"{path.name}: document_path must be a string")
+    elif doc_rel:
         doc_path = path.parent / doc_rel
         if not doc_path.exists():
             errors.append(f"{path.name}: document_path missing: {doc_rel}")
+    return errors
+
+
+def _validate_decisions(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    decisions = data.get("architecture_decisions")
+    if not isinstance(decisions, list):
+        errors.append(f"{path.name}: architecture_decisions must be a list")
+        decisions = []
+    if strict and not decisions:
+        errors.append(
+            f"{path.name}: in_review decisions artifacts must contain at least "
+            "one decision"
+        )
+
+    errors.extend(
+        _validate_id_sequence(decisions, key="id", pattern=AD_ID_RE, path=path)
+    )
+    for item in decisions:
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: decision rows must be mappings")
+            continue
+        for field in ("title", "decision", "rationale", "trade_offs"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {item.get('id', '?')} missing {field}")
+        if not _is_decision_status(item.get("status")):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} has invalid status "
+                f"{item.get('status')!r}"
+            )
+        alternatives = item.get("alternatives_considered")
+        if not isinstance(alternatives, list):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} alternatives_considered "
+                "must be a list"
+            )
+            alternatives = []
+        elif strict and not alternatives:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} must record at least one "
+                "alternative"
+            )
+        for index, alt in enumerate(alternatives, start=1):
+            if not isinstance(alt, dict):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} alternative {index} "
+                    "must be a mapping"
+                )
+                continue
+            if not _is_non_empty_string(alt.get("option")):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} alternative {index} "
+                    "missing option"
+                )
+            if not _is_string_list(alt.get("pros"), min_items=1):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} alternative {index} "
+                    "must include at least one pro"
+                )
+            if not _is_string_list(alt.get("cons"), min_items=1):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} alternative {index} "
+                    "must include at least one con"
+                )
+            if not _is_non_empty_string(alt.get("rejected_reason")):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} alternative {index} "
+                    "missing rejected_reason"
+                )
+        if not _is_string_list(item.get("re_refs"), min_items=1):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} must cite at least one RE ref"
+            )
+    return errors
+
+
+def _validate_components(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    components = data.get("components")
+    if not isinstance(components, list):
+        errors.append(f"{path.name}: components must be a list")
+        components = []
+    if strict and not components:
+        errors.append(
+            f"{path.name}: in_review components artifacts must contain at least "
+            "one component"
+        )
+
+    errors.extend(
+        _validate_id_sequence(components, key="id", pattern=COMP_ID_RE, path=path)
+    )
+    component_ids = {
+        item["id"]
+        for item in components
+        if isinstance(item, dict) and _is_non_empty_string(item.get("id"))
+    }
+    dependency_checks: list[tuple[str, str]] = []
+
+    for item in components:
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: component rows must be mappings")
+            continue
+        for field in ("name", "responsibility"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {item.get('id', '?')} missing {field}")
+        if item.get("type") not in COMPONENT_TYPES:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} has invalid type "
+                f"{item.get('type')!r}"
+            )
+        interfaces = item.get("interfaces")
+        if not isinstance(interfaces, list) or not interfaces:
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} must list at least one interface"
+            )
+            interfaces = []
+        for index, interface in enumerate(interfaces, start=1):
+            if not isinstance(interface, dict):
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} interface {index} "
+                    "must be a mapping"
+                )
+                continue
+            for field in ("name", "protocol", "description"):
+                if not _is_non_empty_string(interface.get(field)):
+                    errors.append(
+                        f"{path.name}: {item.get('id', '?')} interface {index} "
+                        f"missing {field}"
+                    )
+            if interface.get("direction") not in INTERFACE_DIRECTIONS:
+                errors.append(
+                    f"{path.name}: {item.get('id', '?')} interface {index} has "
+                    f"invalid direction {interface.get('direction')!r}"
+                )
+        dependencies = item.get("dependencies")
+        if dependencies != [] and not _is_string_list(dependencies):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} dependencies must be a list "
+                "of non-empty strings"
+            )
+        else:
+            assert dependencies == [] or isinstance(dependencies, list)
+            for dependency in dependencies or []:
+                if not COMP_ID_RE.match(dependency):
+                    errors.append(
+                        f"{path.name}: {item.get('id', '?')} has invalid dependency "
+                        f"{dependency!r}"
+                    )
+                else:
+                    dependency_checks.append((item.get("id", "?"), dependency))
+        if not _is_string_list(item.get("re_refs"), min_items=1):
+            errors.append(
+                f"{path.name}: {item.get('id', '?')} must cite at least one FR/NFR ref"
+            )
+
+    for component_id, dependency in dependency_checks:
+        if dependency == component_id:
+            errors.append(f"{path.name}: {component_id} cannot depend on itself")
+        elif dependency not in component_ids:
+            errors.append(
+                f"{path.name}: {component_id} depends on missing component "
+                f"{dependency!r}"
+            )
+    return errors
+
+
+def _validate_tech_stack(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    stack = data.get("technology_stack")
+    if not isinstance(stack, list):
+        errors.append(f"{path.name}: technology_stack must be a list")
+        stack = []
+    if strict and not stack:
+        errors.append(
+            f"{path.name}: in_review tech-stack artifacts must contain at least "
+            "one technology row"
+        )
+
+    for index, item in enumerate(stack, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: technology_stack rows must be mappings")
+            continue
+        row_label = f"technology_stack row {index}"
+        if item.get("category") not in TECH_CATEGORIES:
+            errors.append(
+                f"{path.name}: {row_label} has invalid category "
+                f"{item.get('category')!r}"
+            )
+        for field in ("choice", "rationale"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {row_label} missing {field}")
+        decision_ref = item.get("decision_ref")
+        constraint_ref = item.get("constraint_ref")
+        has_decision_ref = _is_non_empty_string(decision_ref)
+        has_constraint_ref = _is_non_empty_string(constraint_ref)
+        if not has_decision_ref and not has_constraint_ref:
+            errors.append(
+                f"{path.name}: {row_label} must set decision_ref or constraint_ref"
+            )
+        if has_decision_ref and not AD_ID_RE.match(str(decision_ref)):
+            errors.append(
+                f"{path.name}: {row_label} has invalid decision_ref "
+                f"{decision_ref!r}"
+            )
+        if has_constraint_ref and not CON_ID_RE.match(str(constraint_ref)):
+            errors.append(
+                f"{path.name}: {row_label} has invalid constraint_ref "
+                f"{constraint_ref!r}"
+            )
+    return errors
+
+
+def _validate_diagrams(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    errors: list[str] = []
+    diagrams = data.get("diagrams")
+    if not isinstance(diagrams, list):
+        errors.append(f"{path.name}: diagrams must be a list")
+        diagrams = []
+    if strict and not diagrams:
+        errors.append(
+            f"{path.name}: in_review diagrams artifacts must contain at least "
+            "one diagram"
+        )
+
+    for index, item in enumerate(diagrams, start=1):
+        if not isinstance(item, dict):
+            errors.append(f"{path.name}: diagrams rows must be mappings")
+            continue
+        row_label = f"diagrams row {index}"
+        if item.get("type") not in DIAGRAM_TYPES:
+            errors.append(
+                f"{path.name}: {row_label} has invalid type {item.get('type')!r}"
+            )
+        if item.get("format") not in DIAGRAM_FORMATS:
+            errors.append(
+                f"{path.name}: {row_label} has invalid format {item.get('format')!r}"
+            )
+        for field in ("title", "description"):
+            if not _is_non_empty_string(item.get(field)):
+                errors.append(f"{path.name}: {row_label} missing {field}")
+        if not _is_string_list(item.get("re_refs"), min_items=1):
+            errors.append(
+                f"{path.name}: {row_label} must cite at least one RE/AD ref"
+            )
+    return errors
+
+
+def _validate_section_payload(
+    data: dict[str, Any], path: Path, *, strict: bool
+) -> list[str]:
+    section = data.get("section")
+    if section == "decisions":
+        return _validate_decisions(data, path, strict=strict)
+    if section == "components":
+        return _validate_components(data, path, strict=strict)
+    if section == "tech-stack":
+        return _validate_tech_stack(data, path, strict=strict)
+    if section == "diagrams":
+        return _validate_diagrams(data, path, strict=strict)
+    return []
+
+
+def _validate_artifact(
+    data: dict[str, Any], path: Path, *, strict: bool | None = None
+) -> list[str]:
+    approval = data.get("approval") or {}
+    if strict is None:
+        strict = (
+            data.get("phase") in {"in_review", "approved"}
+            or approval.get("state") == "approved"
+        )
+    errors = _validate_meta(data, path, strict=strict)
+    errors.extend(_validate_section_payload(data, path, strict=strict))
     return errors
 
 
@@ -426,15 +889,37 @@ def _validate_traceability(all_data: dict[str, dict[str, Any]]) -> list[str]:
     ids = set(all_data.keys())
     for aid, data in all_data.items():
         for ref in data.get("downstream_refs") or []:
-            if ref in ids:
-                other = all_data[ref]
+            if not _is_non_empty_string(ref):
+                errors.append(f"{aid}: downstream_ref contains a blank value")
+                continue
+            if _is_internal_arch_ref(ref):
+                other, load_error = (
+                    (all_data[ref], None)
+                    if ref in ids
+                    else _load_internal_ref(ref)
+                )
+                if load_error:
+                    errors.append(f"{aid}: downstream_ref {load_error}")
+                    continue
+                assert other is not None
                 if aid not in (other.get("upstream_refs") or []):
                     errors.append(
                         f"{aid}: downstream_ref {ref!r} lacks reciprocal upstream"
                     )
         for ref in data.get("upstream_refs") or []:
-            if ref in ids:
-                other = all_data[ref]
+            if not _is_non_empty_string(ref):
+                errors.append(f"{aid}: upstream_ref contains a blank value")
+                continue
+            if _is_internal_arch_ref(ref):
+                other, load_error = (
+                    (all_data[ref], None)
+                    if ref in ids
+                    else _load_internal_ref(ref)
+                )
+                if load_error:
+                    errors.append(f"{aid}: upstream_ref {load_error}")
+                    continue
+                assert other is not None
                 if aid not in (other.get("downstream_refs") or []):
                     errors.append(
                         f"{aid}: upstream_ref {ref!r} lacks reciprocal downstream"
@@ -443,7 +928,14 @@ def _validate_traceability(all_data: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    files = all_meta_files()
+    if args.artifact_id:
+        try:
+            files = [find_meta_by_id(args.artifact_id)]
+        except FileNotFoundError as e:
+            sys.stderr.write(f"error: {e}\n")
+            return 2
+    else:
+        files = all_meta_files()
     if not files:
         print("(no artifacts yet — nothing to validate)")
         return 0
@@ -456,9 +948,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         except Exception as e:
             errors.append(f"{p.name}: unreadable ({e})")
             continue
-        if args.artifact_id and data.get("artifact_id") != args.artifact_id:
-            continue
-        errors.extend(_validate_meta(data, p))
+        errors.extend(_validate_artifact(data, p))
         aid = data.get("artifact_id")
         if isinstance(aid, str):
             loaded[aid] = data
@@ -509,6 +999,33 @@ REPORT_REQUIRED_FIELDS = (
     "verdict",
     "summary",
 )
+REPORT_ITEM_SEVERITIES = {"high", "med", "low", "info"}
+REPORT_KIND_BY_STAGE = {
+    "adr": "adr-draft",
+    "diagram": "diagram-draft",
+    "review": "review",
+}
+REPORT_CLASSIFICATIONS_BY_STAGE = {
+    "adr": {
+        "adr_drafted",
+        "context_missing",
+        "alternatives_missing",
+        "consequences_missing",
+    },
+    "diagram": {"diagram_drafted", "caption_missing", "driver_untraced"},
+    "review": {
+        "scenario_pass",
+        "scenario_failure",
+        "hard_constraint_unsatisfied",
+        "traceability_gap",
+        "escalation",
+    },
+}
+REPORT_ALLOWED_OPS_BY_STAGE = {
+    "adr": {"link", "set-progress"},
+    "diagram": {"link", "set-progress", "set-phase"},
+    "review": {"link", "set-progress"},
+}
 
 
 def reports_dir() -> Path:
@@ -654,14 +1171,114 @@ def cmd_report_validate(args: argparse.Namespace) -> int:
             f"skill mismatch: report says {fm['skill']!r}, "
             f"this script is for {SKILL_NAME!r}"
         )
-    if "target_refs" in fm and not isinstance(fm["target_refs"], list):
+    stage = fm.get("stage")
+    expected_kind = REPORT_KIND_BY_STAGE.get(stage)
+    if expected_kind and fm.get("kind") != expected_kind:
+        errors.append(
+            f"kind/stage mismatch: stage {stage!r} expects kind "
+            f"{expected_kind!r}, got {fm.get('kind')!r}"
+        )
+    target_refs = fm.get("target_refs")
+    if target_refs is not None and not isinstance(target_refs, list):
         errors.append("target_refs must be a list")
-    if "proposed_meta_ops" in fm and not isinstance(
-        fm["proposed_meta_ops"], list
-    ):
+        target_refs = []
+    elif isinstance(target_refs, list):
+        for index, ref in enumerate(target_refs, start=1):
+            if not _is_non_empty_string(ref):
+                errors.append(f"target_refs[{index}] must be a non-empty string")
+    if stage in {"adr", "review"} and isinstance(target_refs, list) and not target_refs:
+        errors.append(f"{stage} reports must include at least one target_ref")
+
+    proposed_meta_ops = fm.get("proposed_meta_ops")
+    if proposed_meta_ops is not None and not isinstance(proposed_meta_ops, list):
         errors.append("proposed_meta_ops must be a list")
-    if "items" in fm and not isinstance(fm["items"], list):
+        proposed_meta_ops = []
+
+    items = fm.get("items")
+    if items is not None and not isinstance(items, list):
         errors.append("items must be a list")
+        items = []
+    elif stage in REPORT_CLASSIFICATIONS_BY_STAGE and isinstance(items, list) and not items:
+        errors.append(f"{stage} reports must include at least one item")
+
+    allowed_classifications = REPORT_CLASSIFICATIONS_BY_STAGE.get(stage)
+    if isinstance(items, list):
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                errors.append(f"items[{index}] must be a mapping")
+                continue
+            classification = item.get("classification")
+            if not _is_non_empty_string(classification):
+                errors.append(f"items[{index}] missing classification")
+            elif (
+                allowed_classifications is not None
+                and classification not in allowed_classifications
+            ):
+                errors.append(
+                    f"items[{index}] has invalid classification "
+                    f"{classification!r} for stage {stage!r}"
+                )
+            severity = item.get("severity")
+            if severity is not None and severity not in REPORT_ITEM_SEVERITIES:
+                errors.append(
+                    f"items[{index}] has invalid severity {severity!r}"
+                )
+
+    allowed_ops = REPORT_ALLOWED_OPS_BY_STAGE.get(stage)
+    if isinstance(proposed_meta_ops, list):
+        for index, op in enumerate(proposed_meta_ops, start=1):
+            if not isinstance(op, dict):
+                errors.append(f"proposed_meta_ops[{index}] must be a mapping")
+                continue
+            cmd = op.get("cmd")
+            if not _is_non_empty_string(cmd):
+                errors.append(f"proposed_meta_ops[{index}] missing cmd")
+                continue
+            if allowed_ops is not None and cmd not in allowed_ops:
+                errors.append(
+                    f"proposed_meta_ops[{index}] command {cmd!r} is not allowed "
+                    f"for stage {stage!r}"
+                )
+                continue
+            if cmd == "link":
+                if not _is_non_empty_string(op.get("artifact_id")):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] link requires artifact_id"
+                    )
+                if not _is_non_empty_string(op.get("upstream")) and not _is_non_empty_string(
+                    op.get("downstream")
+                ):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] link requires upstream or downstream"
+                    )
+            elif cmd == "set-progress":
+                completed = op.get("completed")
+                total = op.get("total")
+                if not _is_non_empty_string(op.get("artifact_id")):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-progress requires artifact_id"
+                    )
+                if not isinstance(completed, int) or not isinstance(total, int):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-progress requires integer "
+                        "completed and total"
+                    )
+                elif completed < 0 or total <= 0 or completed > total:
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-progress has invalid "
+                        f"completed/total values ({completed}/{total})"
+                    )
+            elif cmd == "set-phase":
+                if not _is_non_empty_string(op.get("artifact_id")):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-phase requires artifact_id"
+                    )
+                phase = op.get("phase")
+                if phase != "in_review":
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-phase may only request "
+                        f"'in_review', got {phase!r}"
+                    )
     if not (fm.get("summary") or "").strip():
         errors.append("summary is empty (subagent must write a one-line summary)")
     stripped_body = "\n".join(
@@ -669,6 +1286,20 @@ def cmd_report_validate(args: argparse.Namespace) -> int:
     ).strip()
     if not stripped_body:
         errors.append("body has no content beyond the header")
+    if stage == "review":
+        for heading in (
+            "## Summary",
+            "## Scenarios",
+            "## Constraints",
+            "## Traceability",
+            "## Risks and open items",
+        ):
+            if heading not in body:
+                errors.append(f"review body missing heading {heading!r}")
+    elif stage == "adr" and "### AD-" not in body:
+        errors.append("adr body must include at least one ADR heading")
+    elif stage == "diagram" and "```mermaid" not in body:
+        errors.append("diagram body must include at least one mermaid block")
     if errors:
         print(f"{p.name}: INVALID")
         for e in errors:
