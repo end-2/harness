@@ -1,0 +1,66 @@
+# Metadata skeleton for the Observability Configuration section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: DEVOPS-OBS-000
+section: observability
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: DEVOPS-OBS-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+observability_config:
+  slo_definitions: []
+  # - id: SLO-001
+  #   sli: request success rate
+  #   target: 99.9%
+  #   window: 30d rolling
+  #   error_budget: 0.1%
+  #   burn_rate_alert:
+  #     fast_window: 5m
+  #     slow_window: 1h
+  #     threshold: 14.4x
+  #   re_refs: [NFR-001, NFR-002]
+  monitoring_rules: []
+  # - id: MON-001
+  #   type: alert
+  #   condition: error_rate > 1%
+  #   severity: critical
+  #   channel: pagerduty-oncall
+  #   slo_refs: [SLO-001]
+  dashboards: []
+  # - id: DASH-001
+  #   title: Service Overview
+  #   format: Grafana JSON
+  #   panels_count: 12
+  logging_config:
+    format: null
+    # format: structured JSON
+    levels: []
+    # levels: [debug, info, warn, error]
+    correlation_id: null
+    # correlation_id: X-Request-ID header
+    masking: []
+    # masking: [email, ssn, credit_card]
+    retention: null
+    # retention: 30d hot, 90d cold
+  tracing_config:
+    sampling_rate: null
+    # sampling_rate: 10%
+    propagation: null
+    # propagation: W3C Trace Context
+    span_attributes: []
+    # span_attributes: [http.method, http.route, db.statement]
+  qa_refs: []
+  # qa_refs: [QA-TC-001, QA-TC-005]
+  config_files: []
+  # config_files: [monitoring/alerts.yml, monitoring/dashboards/overview.json]

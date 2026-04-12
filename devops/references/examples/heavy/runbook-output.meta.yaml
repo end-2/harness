@@ -1,0 +1,274 @@
+artifact_id: DEVOPS-RB-001
+section: runbook
+phase: approved
+progress:
+  section_completed: 3
+  section_total: 3
+  percent: 100
+approval:
+  state: approved
+  approver: bob
+  approved_at: 2026-04-11T18:00:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T17:00:00Z
+      notes: null
+    - state: approved
+      approver: bob
+      at: 2026-04-11T18:00:00Z
+      notes: null
+upstream_refs:
+  - ARCH-COMP-001
+  - ARCH-COMP-002
+  - ARCH-COMP-003
+  - ARCH-COMP-004
+  - DEVOPS-OBS-001
+  - DEVOPS-PL-001
+downstream_refs: []
+document_path: DEVOPS-RB-001.md
+created_at: 2026-04-11T16:00:00Z
+updated_at: 2026-04-11T18:00:00Z
+
+runbook_entries:
+  - id: RB-001
+    title: "High API Error Rate — API Gateway"
+    trigger_condition: "MON-001 fires (gateway availability burn rate > 14.4x)"
+    severity: critical
+    symptoms:
+      - "5xx spike on /api/* endpoints"
+      - "SLO burn-rate alert on DASH-002"
+      - "Elevated error rate on DASH-001 Service Overview"
+      - "User-facing error pages or timeouts"
+    diagnosis_steps:
+      - step: 1
+        action: "Check recent deployments"
+        command: "kubectl rollout history deployment/api-gateway -n production"
+      - step: 2
+        action: "Check pod status and restarts"
+        command: "kubectl get pods -l app=api-gateway -n production -o wide"
+      - step: 3
+        action: "Check error logs (last 5 min)"
+        command: "kubectl logs -l app=api-gateway -n production --tail=200 --since=5m | jq 'select(.level==\"error\")'"
+      - step: 4
+        action: "Check downstream service health"
+        command: "kubectl get pods -l app=order-service -n production && kubectl get pods -l app=payment-service -n production"
+      - step: 5
+        action: "Check resource utilization"
+        command: "kubectl top pods -l app=api-gateway -n production"
+      - step: 6
+        action: "Inspect traces for failing requests"
+        command: "Open Jaeger UI, filter by service=api-gateway, status=error, last 15 minutes"
+    remediation_steps:
+      - step: 1
+        action: "Rollback gateway if recent deploy"
+        command: "kubectl argo rollouts abort api-gateway -n production"
+        auto: true
+      - step: 2
+        action: "Check specific service runbook if downstream failure"
+        command: "See RB-002 or order-service runbook"
+        auto: false
+      - step: 3
+        action: "Scale up if resource exhaustion"
+        command: "kubectl scale deployment/api-gateway -n production --replicas=6"
+        auto: false
+      - step: 4
+        action: "Revert ConfigMap if configuration error"
+        command: "kubectl rollout undo deployment/api-gateway -n production"
+        auto: false
+      - step: 5
+        action: "Verify recovery"
+        command: "Monitor DASH-002 error budget burn rate for 10 minutes"
+        auto: false
+    escalation_path:
+      - level: 1
+        contact: "on-call SRE"
+        channel: "#incidents"
+        timeout_minutes: 15
+      - level: 2
+        contact: "platform engineering lead"
+        channel: "#incidents-escalation"
+        timeout_minutes: 30
+      - level: 3
+        contact: "VP Engineering"
+        channel: "phone call"
+        timeout_minutes: 60
+    rollback_ref: PL-001.rollback_procedure
+    monitoring_refs: [MON-001]
+    slo_refs: [SLO-001]
+    communication_template: |
+      **Incident**: RB-001 High API Error Rate
+      **Status**: Investigating | Mitigated | Resolved
+      **Severity**: critical
+      **Impact**: Users experiencing errors on API endpoints
+      **Services affected**: api-gateway
+    postmortem_template: |
+      ## Timeline
+      ## Root Cause
+      ## Impact
+      ## Action Items
+  - id: RB-002
+    title: "Payment Service Timeout"
+    trigger_condition: "MON-005 fires (payment success rate burn rate > 14.4x)"
+    severity: critical
+    symptoms:
+      - "Payment transactions failing or timing out"
+      - "Elevated payment_provider_duration_seconds p99 on DASH-004"
+      - "Circuit breaker tripping to OPEN state"
+      - "Order placement failures (users unable to complete checkout)"
+      - "Spike in retry volume (payment_retries_total)"
+    diagnosis_steps:
+      - step: 1
+        action: "Check circuit breaker state"
+        command: "kubectl exec -n production deployment/payment-service -- curl localhost:8080/internal/circuit-breaker"
+      - step: 2
+        action: "Check payment service pod health"
+        command: "kubectl get pods -l app=payment-service -n production -o wide"
+      - step: 3
+        action: "Check payment provider connectivity"
+        command: "kubectl exec -n production deployment/payment-service -- curl -s -o /dev/null -w '%{http_code}' https://api.payment-provider.com/health"
+      - step: 4
+        action: "Check error logs for provider errors"
+        command: "kubectl logs -l app=payment-service -n production --tail=200 --since=5m | jq 'select(.level==\"error\")'"
+      - step: 5
+        action: "Check recent deployments"
+        command: "kubectl rollout history deployment/payment-service -n production"
+      - step: 6
+        action: "Inspect traces for slow transactions"
+        command: "Open Jaeger UI, filter by service=payment-service, sort by duration descending"
+      - step: 7
+        action: "Check database connection pool"
+        command: "kubectl exec -n production deployment/payment-service -- curl localhost:8080/internal/metrics | grep db_pool"
+    remediation_steps:
+      - step: 1
+        action: "Activate circuit breaker if provider outage"
+        command: "Circuit breaker auto-activates after 5 consecutive failures"
+        auto: true
+      - step: 2
+        action: "Rollback payment-service if recent deploy"
+        command: "kubectl argo rollouts abort payment-service -n production"
+        auto: true
+      - step: 3
+        action: "Reset circuit breaker if provider recovered"
+        command: "kubectl exec -n production deployment/payment-service -- curl -X POST localhost:8080/internal/circuit-breaker/reset"
+        auto: false
+      - step: 4
+        action: "Restart pods if connection pool exhaustion"
+        command: "kubectl rollout restart deployment/payment-service -n production"
+        auto: false
+      - step: 5
+        action: "Enable async payments if sustained provider degradation"
+        command: "Update ConfigMap payment-config: ASYNC_PAYMENTS=true, restart pods"
+        auto: false
+      - step: 6
+        action: "Verify recovery"
+        command: "Monitor DASH-004 transaction success rate for 10 minutes"
+        auto: false
+    escalation_path:
+      - level: 1
+        contact: "on-call SRE"
+        channel: "#incidents"
+        timeout_minutes: 10
+      - level: 2
+        contact: "payment team lead"
+        channel: "#payment-incidents"
+        timeout_minutes: 20
+      - level: 3
+        contact: "VP Engineering + payment provider support"
+        channel: "phone call + provider support ticket"
+        timeout_minutes: 45
+    rollback_ref: PL-001.rollback_procedure
+    monitoring_refs: [MON-005]
+    slo_refs: [SLO-005]
+    communication_template: |
+      **Incident**: RB-002 Payment Service Timeout
+      **Status**: Investigating | Mitigated | Resolved
+      **Severity**: critical
+      **Impact**: Customers unable to complete payment for orders
+      **Services affected**: payment-service, order-service (downstream)
+    postmortem_template: |
+      ## Timeline
+      ## Root Cause
+      ## Impact
+      ## Action Items
+  - id: RB-003
+    title: "Database Connection Pool Exhaustion"
+    trigger_condition: "MON-013/MON-014 fires combined with log-based metric db_connection_pool_exhausted_total > 0"
+    severity: high
+    symptoms:
+      - "connection pool exhausted errors in order-service and/or payment-service logs"
+      - "Elevated response latency across database-dependent services"
+      - "PostgreSQL pg_stat_activity showing many idle-in-transaction connections"
+      - "Cascading failures: order-service times out, gateway returns 503"
+    diagnosis_steps:
+      - step: 1
+        action: "Check active DB connections"
+        command: "kubectl exec -n production deployment/order-service -- curl localhost:8080/internal/metrics | grep 'db_pool_active\\|db_pool_idle\\|db_pool_max'"
+      - step: 2
+        action: "Check PostgreSQL connection count"
+        command: "kubectl exec -n production statefulset/postgresql-0 -- psql -U app -c \"SELECT count(*), state FROM pg_stat_activity GROUP BY state;\""
+      - step: 3
+        action: "Identify long-running queries"
+        command: "kubectl exec -n production statefulset/postgresql-0 -- psql -U app -c \"SELECT pid, now() - pg_stat_activity.query_start AS duration, query, state FROM pg_stat_activity WHERE (now() - pg_stat_activity.query_start) > interval '30 seconds' ORDER BY duration DESC;\""
+      - step: 4
+        action: "Check for connection leaks in logs"
+        command: "kubectl logs -l app=order-service -n production --tail=500 --since=15m | jq 'select(.message | contains(\"connection\"))' | head -50"
+      - step: 5
+        action: "Check HPA status"
+        command: "kubectl get hpa -n production"
+      - step: 6
+        action: "Check if recent migration ran"
+        command: "kubectl logs -l app=db-migration -n production --tail=50"
+    remediation_steps:
+      - step: 1
+        action: "Kill idle-in-transaction connections older than 60s"
+        command: "kubectl exec -n production statefulset/postgresql-0 -- psql -U app -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle in transaction' AND (now() - state_change) > interval '60 seconds';\""
+        auto: false
+      - step: 2
+        action: "Adjust HPA max or pool size if pod count scaled beyond capacity"
+        command: "Update ConfigMap: DB_POOL_MAX_SIZE=30, kubectl rollout restart deployment/order-service -n production"
+        auto: false
+      - step: 3
+        action: "Kill long-running queries"
+        command: "kubectl exec -n production statefulset/postgresql-0 -- psql -U app -c \"SELECT pg_cancel_backend(<pid>);\""
+        auto: false
+      - step: 4
+        action: "Rolling restart if connection leak suspected"
+        command: "kubectl rollout restart deployment/order-service -n production"
+        auto: false
+      - step: 5
+        action: "Increase PostgreSQL max_connections if at limit"
+        command: "helm upgrade postgresql charts/postgresql -f values.production.yaml --set max_connections=200"
+        auto: false
+      - step: 6
+        action: "Verify recovery"
+        command: "Monitor db_pool_active metric and pg_stat_activity count for 10 minutes"
+        auto: false
+    escalation_path:
+      - level: 1
+        contact: "on-call SRE"
+        channel: "#incidents"
+        timeout_minutes: 15
+      - level: 2
+        contact: "database team lead"
+        channel: "#database-ops"
+        timeout_minutes: 30
+      - level: 3
+        contact: "platform engineering lead"
+        channel: "#incidents-escalation"
+        timeout_minutes: 60
+    rollback_ref: null
+    monitoring_refs: [MON-013, MON-014]
+    slo_refs: [SLO-003, SLO-005]
+    communication_template: |
+      **Incident**: RB-003 Database Connection Pool Exhaustion
+      **Status**: Investigating | Mitigated | Resolved
+      **Severity**: high
+      **Impact**: Degraded response times and intermittent errors on order and payment services
+      **Services affected**: order-service, payment-service, postgresql
+    postmortem_template: |
+      ## Timeline
+      ## Root Cause
+      ## Impact
+      ## Action Items

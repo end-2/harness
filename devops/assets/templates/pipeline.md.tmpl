@@ -1,0 +1,99 @@
+# Pipeline Configuration
+
+<!--
+This document defines the CI/CD pipeline configuration: platforms, triggers,
+stages, caching, secrets management, deployment strategy, and environment
+promotion rules. It bridges Impl's code artifacts to the automated build and
+deploy workflow.
+
+ID convention: PL-001, PL-002, ...
+-->
+
+## 1. Pipeline Summary
+
+| ID | Platform | Trigger | Deployment Method | Environments |
+|----|----------|---------|-------------------|--------------|
+| PL-001 | <!-- GitHub Actions / GitLab CI / Jenkins --> | <!-- push to main --> | <!-- rolling / blue-green / canary --> | <!-- dev, staging, prod --> |
+
+## 2. Stages
+
+### PL-001 — <!-- pipeline name -->
+
+#### Build
+
+1. <!-- checkout repository -->
+2. <!-- install dependencies -->
+3. <!-- compile / bundle -->
+
+#### Test
+
+1. <!-- run unit tests -->
+2. <!-- run integration tests -->
+
+#### Security Scan
+
+1. <!-- SAST analysis -->
+2. <!-- dependency audit -->
+
+#### Deploy
+
+1. <!-- build container image -->
+2. <!-- push to registry -->
+3. <!-- rollout to target environment -->
+
+## 3. Caching Strategy
+
+<!--
+Describe what is cached, where, and the cache key strategy.
+e.g. node_modules via actions/cache keyed on lockfile hash.
+-->
+
+| Cached Artifact | Mechanism | Cache Key |
+|----------------|-----------|-----------|
+| <!-- node_modules --> | <!-- actions/cache --> | <!-- hashFiles('pnpm-lock.yaml') --> |
+
+## 4. Secrets Management
+
+| Name | Source | Injection Method |
+|------|--------|-----------------|
+| <!-- DOCKER_TOKEN --> | <!-- GitHub Secrets --> | <!-- env --> |
+| <!-- DATABASE_URL --> | <!-- Vault --> | <!-- file mount --> |
+
+## 5. Deployment Strategy
+
+**Method**: <!-- rolling / blue-green / canary -->
+
+**Rationale**
+
+<!-- Why this method was chosen. Cite Arch refs if applicable. -->
+
+**Rollback Triggers**
+
+- <!-- error-rate > 5% for 5 minutes -->
+- <!-- p99 latency > 2s -->
+
+**Rollback Procedure**
+
+1. <!-- revert to previous release tag -->
+2. <!-- verify health checks pass -->
+3. <!-- notify on-call channel -->
+
+## 6. Environment Promotion
+
+| Environment | Promotion Rule | Approval Required |
+|-------------|---------------|-------------------|
+| <!-- dev --> | <!-- auto on green --> | <!-- no --> |
+| <!-- staging --> | <!-- auto on green --> | <!-- no --> |
+| <!-- prod --> | <!-- manual gate --> | <!-- yes --> |
+
+## 7. Generated Config Files
+
+| File | Purpose |
+|------|---------|
+| <!-- .github/workflows/ci.yml --> | <!-- main CI/CD pipeline --> |
+| <!-- .github/workflows/release.yml --> | <!-- release workflow --> |
+
+## 8. Upstream References
+
+- Arch: <!-- ARCH-COMP-001, ARCH-DEC-003 -->
+- Impl: <!-- IMPL-MAP-001, IMPL-CODE-001 -->

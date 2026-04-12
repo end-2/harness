@@ -1,0 +1,54 @@
+# Metadata skeleton for the Pipeline Configuration section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: DEVOPS-PL-000
+section: pipeline
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: DEVOPS-PL-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+pipeline_config: []
+# - id: PL-001
+#   platform: GitHub Actions
+#   trigger: push to main
+#   stages:
+#     - name: build
+#       steps: [checkout, install, compile]
+#     - name: test
+#       steps: [unit, integration]
+#     - name: security-scan
+#       steps: [sast, dependency-audit]
+#     - name: deploy
+#       steps: [docker-build, push, rollout]
+#   caching: node_modules via actions/cache
+#   secrets:
+#     - name: DOCKER_TOKEN
+#       source: GitHub Secrets
+#       injection_method: env
+#   environments:
+#     - name: dev
+#       promotion_rule: auto on green
+#       approval_required: false
+#     - name: staging
+#       promotion_rule: auto on green
+#       approval_required: false
+#     - name: prod
+#       promotion_rule: manual gate
+#       approval_required: true
+#   deployment_method: rolling
+#   rollback_trigger: error-rate > 5%
+#   rollback_procedure: revert to previous release tag
+#   impl_refs: [IMPL-MAP-001, IMPL-CODE-001]
+#   arch_refs: [ARCH-COMP-001, ARCH-DEC-003]
+#   config_files: [.github/workflows/ci.yml]

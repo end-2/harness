@@ -1,0 +1,87 @@
+# Operational Runbooks
+
+<!--
+This document contains operational runbooks for incident response. Each runbook
+is tied to a monitoring rule and/or SLO, providing structured diagnosis and
+remediation procedures for known failure modes.
+
+ID convention: RB-001, RB-002, ...
+-->
+
+## 1. Runbook Index
+
+| ID | Title | Trigger | Severity | Monitoring Refs | SLO Refs |
+|----|-------|---------|----------|----------------|----------|
+| RB-001 | <!-- High Error Rate on API --> | <!-- error_rate > 5% --> | <!-- critical --> | <!-- MON-001, MON-002 --> | <!-- SLO-001 --> |
+
+## 2. Runbook Entries
+
+### RB-001 — <!-- title -->
+
+**Trigger Condition**
+
+<!-- e.g. error_rate > 5% for 5 minutes, as detected by MON-001. -->
+
+**Severity**: <!-- critical / warning / info -->
+
+**Symptoms**
+
+- <!-- 5xx responses spike visible in Service Overview dashboard -->
+- <!-- PagerDuty alert fires on MON-001 -->
+- <!-- increased latency reported by users -->
+
+**Diagnosis Steps**
+
+1. <!-- Check error logs for stack traces:
+   `kubectl logs -l app=api --tail=100 | grep ERROR` -->
+2. <!-- Verify upstream dependency health:
+   `curl -s https://api.example.com/health` -->
+3. <!-- Check recent deployments:
+   `kubectl rollout history deployment/api` -->
+
+**Remediation Steps**
+
+1. <!-- [manual] Roll back to previous release:
+   `kubectl rollout undo deployment/api` -->
+2. <!-- [auto] Auto-scaling triggered if replica count < threshold -->
+3. <!-- [manual] Verify health checks pass:
+   `curl -s https://api.example.com/health` -->
+
+**Escalation Path**
+
+| Level | Contact | Channel | Timeout |
+|-------|---------|---------|---------|
+| <!-- 1 --> | <!-- on-call engineer --> | <!-- pagerduty --> | <!-- 15m --> |
+| <!-- 2 --> | <!-- team lead --> | <!-- phone --> | <!-- 30m --> |
+| <!-- 3 --> | <!-- engineering manager --> | <!-- phone + bridge call --> | <!-- 1h --> |
+
+**Rollback Reference**: <!-- PL-001 (see Pipeline Configuration for rollback procedure) -->
+
+**Communication Template**
+
+```
+<!-- [Incident] High error rate detected on API.
+Status: Investigating.
+Impact: <describe user impact>.
+ETA: TBD.
+Updates every 30 minutes. -->
+```
+
+**Postmortem Template**
+
+```markdown
+<!-- ## Incident Summary
+## Timeline
+## Root Cause
+## Impact
+## Action Items
+| Action | Owner | Due Date | Status |
+|--------|-------|----------|--------|
+-->
+```
+
+## 3. Upstream References
+
+- Monitoring: <!-- MON-001, MON-002 -->
+- SLOs: <!-- SLO-001 -->
+- Pipeline: <!-- PL-001 -->

@@ -1,0 +1,367 @@
+artifact_id: DEVOPS-OBS-001
+section: observability
+phase: approved
+progress:
+  section_completed: 4
+  section_total: 4
+  percent: 100
+approval:
+  state: approved
+  approver: bob
+  approved_at: 2026-04-11T17:00:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T15:00:00Z
+      notes: null
+    - state: changes_requested
+      approver: bob
+      at: 2026-04-11T15:30:00Z
+      notes: "add PII masking for card_number and cvv per PCI-DSS"
+    - state: pending
+      approver: bob
+      at: 2026-04-11T16:00:00Z
+      notes: null
+    - state: approved
+      approver: bob
+      at: 2026-04-11T17:00:00Z
+      notes: null
+upstream_refs:
+  - ARCH-COMP-001
+  - ARCH-COMP-002
+  - ARCH-COMP-003
+  - ARCH-COMP-004
+  - ARCH-DEC-001
+  - IMPL-CODE-001
+downstream_refs:
+  - DEVOPS-PL-001
+  - DEVOPS-RB-001
+document_path: DEVOPS-OBS-001.md
+created_at: 2026-04-11T13:00:00Z
+updated_at: 2026-04-11T17:00:00Z
+
+observability_config:
+  slo_definitions:
+    - id: SLO-001
+      sli: "1 - (sum(rate(http_requests_total{service='api-gateway',status=~'5..'}[5m])) / sum(rate(http_requests_total{service='api-gateway'}[5m])))"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:availability]
+    - id: SLO-002
+      sli: "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{service='api-gateway'}[5m]))"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:performance]
+    - id: SLO-003
+      sli: "1 - (sum(rate(grpc_server_handled_total{grpc_service='order.OrderService',grpc_code!='OK'}[5m])) / sum(rate(grpc_server_handled_total{grpc_service='order.OrderService'}[5m])))"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:availability]
+    - id: SLO-004
+      sli: "histogram_quantile(0.99, rate(grpc_server_handling_seconds_bucket{grpc_service='order.OrderService'}[5m]))"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:performance]
+    - id: SLO-005
+      sli: "1 - (sum(rate(payment_transactions_total{status='failed'}[5m])) / sum(rate(payment_transactions_total[5m])))"
+      target: 99.95
+      window: 30d
+      error_budget: 0.05
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:availability, QA:payment-reliability]
+    - id: SLO-006
+      sli: "histogram_quantile(0.99, rate(payment_processing_duration_seconds_bucket[5m]))"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:performance]
+    - id: SLO-007
+      sli: "1 - (sum(rate(grpc_server_handled_total{grpc_service='inventory.InventoryService',grpc_code!='OK'}[5m])) / sum(rate(grpc_server_handled_total{grpc_service='inventory.InventoryService'}[5m])))"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:availability]
+    - id: SLO-008
+      sli: "time() - inventory_last_sync_timestamp"
+      target: 99.9
+      window: 30d
+      error_budget: 0.1
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:data-freshness]
+  monitoring_rules:
+    - id: MON-001
+      type: metric
+      condition: "gateway availability burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-001]
+    - id: MON-002
+      type: metric
+      condition: "gateway latency burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-002]
+    - id: MON-003
+      type: metric
+      condition: "order availability burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-003]
+    - id: MON-004
+      type: metric
+      condition: "order latency burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-004]
+    - id: MON-005
+      type: metric
+      condition: "payment success rate burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-005]
+    - id: MON-006
+      type: metric
+      condition: "payment latency burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-006]
+    - id: MON-007
+      type: metric
+      condition: "inventory availability burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-007]
+    - id: MON-008
+      type: metric
+      condition: "inventory freshness burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-008]
+    - id: MON-009
+      type: metric
+      condition: "gateway availability burn_rate > 6x over 30m AND 6h"
+      threshold: 6.0
+      severity: high
+      channel: pagerduty
+      slo_refs: [SLO-001]
+    - id: MON-010
+      type: metric
+      condition: "payment success rate burn_rate > 6x over 30m AND 6h"
+      threshold: 6.0
+      severity: high
+      channel: pagerduty
+      slo_refs: [SLO-005]
+    - id: MON-011
+      type: metric
+      condition: "any service availability burn_rate > 3x over 2h AND 1d"
+      threshold: 3.0
+      severity: medium
+      channel: jira
+      slo_refs: [SLO-001, SLO-003, SLO-005, SLO-007]
+    - id: MON-012
+      type: metric
+      condition: "any service latency burn_rate > 3x over 2h AND 1d"
+      threshold: 3.0
+      severity: medium
+      channel: jira
+      slo_refs: [SLO-002, SLO-004, SLO-006]
+    - id: MON-013
+      type: metric
+      condition: "CPU utilization > 80% sustained 10m"
+      threshold: 80
+      severity: high
+      channel: "slack:#infra-alerts"
+      slo_refs: []
+    - id: MON-014
+      type: metric
+      condition: "memory utilization > 85% sustained 10m"
+      threshold: 85
+      severity: high
+      channel: "slack:#infra-alerts"
+      slo_refs: []
+    - id: MON-015
+      type: metric
+      condition: "disk usage > 80%"
+      threshold: 80
+      severity: medium
+      channel: jira
+      slo_refs: []
+    - id: MON-016
+      type: metric
+      condition: "pod restart count > 3 in 15m"
+      threshold: 3
+      severity: high
+      channel: pagerduty
+      slo_refs: []
+  dashboards:
+    - id: DASH-001
+      title: "Service Overview"
+      panels:
+        - title: Request Rate (all services)
+          query: "sum by (service)(rate(http_requests_total[5m]))"
+          visualization: timeseries
+        - title: Error Rate (all services)
+          query: "sum by (service)(rate(http_requests_total{status=~'5..'}[5m])) / sum by (service)(rate(http_requests_total[5m]))"
+          visualization: timeseries
+        - title: Latency p99 (all services)
+          query: "histogram_quantile(0.99, sum by (service, le)(rate(http_request_duration_seconds_bucket[5m])))"
+          visualization: timeseries
+        - title: Active Requests
+          query: "sum by (service)(http_requests_in_flight)"
+          visualization: stat
+        - title: Pod Status
+          query: "kube_pod_status_phase{namespace='production'}"
+          visualization: table
+      format: grafana-json
+    - id: DASH-002
+      title: "SLO Dashboard"
+      panels:
+        - title: Error Budget Remaining
+          query: "1 - slo:error_budget_consumed:ratio"
+          visualization: gauge
+        - title: Burn Rate
+          query: "slo:burn_rate:5m"
+          visualization: timeseries
+        - title: Budget Consumption Trend
+          query: "slo:error_budget_consumed:ratio"
+          visualization: timeseries
+        - title: SLO Compliance Table
+          query: "slo:compliance:current"
+          visualization: table
+      format: grafana-json
+    - id: DASH-003
+      title: "Infrastructure"
+      panels:
+        - title: CPU Utilization
+          query: "rate(container_cpu_usage_seconds_total[5m])"
+          visualization: timeseries
+        - title: Memory Usage
+          query: "container_memory_working_set_bytes"
+          visualization: timeseries
+        - title: Network I/O
+          query: "rate(container_network_receive_bytes_total[5m])"
+          visualization: timeseries
+        - title: HPA Status
+          query: "kube_horizontalpodautoscaler_status_current_replicas"
+          visualization: stat
+      format: grafana-json
+    - id: DASH-004
+      title: "Payment Service Deep Dive"
+      panels:
+        - title: Transaction Rate
+          query: "rate(payment_transactions_total[5m])"
+          visualization: timeseries
+        - title: Provider Response Time
+          query: "histogram_quantile(0.99, rate(payment_provider_duration_seconds_bucket[5m]))"
+          visualization: timeseries
+        - title: Circuit Breaker State
+          query: "payment_circuit_breaker_state"
+          visualization: stat
+        - title: Retry Rate
+          query: "rate(payment_retries_total[5m])"
+          visualization: timeseries
+      format: grafana-json
+  logging_config:
+    format: json
+    level_default: info
+    correlation_id:
+      header: X-Request-ID
+      propagation: w3c-tracecontext
+    masking_rules:
+      - field_pattern: "*.email"
+        strategy: hash
+      - field_pattern: "*.phone"
+        strategy: redact
+      - field_pattern: "*.card_number"
+        strategy: redact
+      - field_pattern: "*.cvv"
+        strategy: redact
+      - field_pattern: "*.password"
+        strategy: redact
+      - field_pattern: "*.ssn"
+        strategy: redact
+      - field_pattern: "*.address"
+        strategy: hash
+    retention:
+      hot_days: 7
+      warm_days: 30
+      archive_days: 365
+  tracing_config:
+    sampling_rate: 0.1
+    propagation: w3c
+    span_attributes:
+      - key: service.name
+        source: env
+      - key: service.version
+        source: env
+      - key: deployment.environment
+        source: env
+      - key: http.method
+        source: instrumentation
+      - key: http.status_code
+        source: instrumentation
+      - key: http.route
+        source: instrumentation
+      - key: db.system
+        source: instrumentation
+      - key: db.statement
+        source: instrumentation
+  qa_refs: [QA:availability, QA:performance, QA:payment-reliability, QA:data-freshness]
+  config_files:
+    - path: monitoring/prometheus-rules.yml
+      purpose: SLO burn-rate alerting and recording rules
+    - path: monitoring/grafana-dashboards/service-overview.json
+      purpose: Service overview dashboard
+    - path: monitoring/grafana-dashboards/slo-dashboard.json
+      purpose: SLO tracking dashboard
+    - path: monitoring/grafana-dashboards/infrastructure.json
+      purpose: Infrastructure metrics dashboard
+    - path: monitoring/grafana-dashboards/payment-deep-dive.json
+      purpose: Payment service operational dashboard
+    - path: monitoring/otel-collector-config.yaml
+      purpose: OpenTelemetry collector configuration
+    - path: monitoring/jaeger-values.yaml
+      purpose: Jaeger Helm chart values

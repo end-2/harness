@@ -1,0 +1,57 @@
+# Metadata skeleton for the Operational Runbooks section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: DEVOPS-RB-000
+section: runbook
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: DEVOPS-RB-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+runbook_entries: []
+# - id: RB-001
+#   title: High Error Rate on API
+#   trigger_condition: error_rate > 5% for 5 minutes
+#   severity: critical
+#   symptoms:
+#     - 5xx responses spike in dashboard
+#     - PagerDuty alert fires on MON-001
+#   diagnosis_steps:
+#     - Check error logs for stack traces
+#     - Verify upstream dependency health
+#     - Check recent deployments
+#   remediation_steps:
+#     - step: Roll back to previous release
+#       type: manual
+#     - step: Scale up replicas
+#       type: auto
+#   escalation_path:
+#     - level: 1
+#       contact: on-call engineer
+#       channel: pagerduty
+#       timeout: 15m
+#     - level: 2
+#       contact: team lead
+#       channel: phone
+#       timeout: 30m
+#   rollback_ref: PL-001
+#   monitoring_refs: [MON-001, MON-002]
+#   slo_refs: [SLO-001]
+#   communication_template: |
+#     [Incident] High error rate detected on API.
+#     Status: Investigating. ETA: TBD.
+#   postmortem_template: |
+#     ## Incident Summary
+#     ## Timeline
+#     ## Root Cause
+#     ## Action Items

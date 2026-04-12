@@ -1,0 +1,52 @@
+# Metadata skeleton for the Infrastructure Code section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: DEVOPS-IAC-000
+section: iac
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: DEVOPS-IAC-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+infrastructure_code: []
+# - id: IAC-001
+#   tool: Terraform
+#   provider: AWS
+#   modules:
+#     - name: networking
+#       path: infra/modules/networking
+#       responsibility: VPC, subnets, security groups
+#       component_ref: ARCH-COMP-001
+#   environments:
+#     - name: dev
+#       overrides: smaller instance types, single AZ
+#     - name: staging
+#       overrides: mirrors prod topology, reduced replicas
+#     - name: prod
+#       overrides: multi-AZ, auto-scaling enabled
+#   state_management:
+#     backend: S3
+#     locking: DynamoDB
+#     drift_detection: scheduled plan
+#   networking:
+#     vpc_cidr: 10.0.0.0/16
+#     subnets: [public, private-app, private-db]
+#     security_groups: [alb-sg, app-sg, db-sg]
+#     load_balancers: [alb-main]
+#   cost_estimate:
+#     dev: $150/month
+#     staging: $300/month
+#     prod: $1200/month
+#   comp_refs: [ARCH-COMP-001, ARCH-COMP-002]
+#   constraint_refs: [NFR-001, CON-002]
+#   code_files: [infra/main.tf, infra/variables.tf]

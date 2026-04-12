@@ -1,0 +1,132 @@
+# Observability Configuration
+
+<!--
+This document defines the observability stack: SLOs, monitoring rules,
+dashboards, logging configuration, and distributed tracing. It ensures
+production systems are measurable, alertable, and debuggable.
+
+ID conventions:
+  SLOs:   SLO-001, SLO-002, ...
+  Rules:  MON-001, MON-002, ...
+  Dashboards: DASH-001, DASH-002, ...
+-->
+
+## 1. SLO Summary
+
+| ID | SLI | Target | Window | Error Budget | RE Refs |
+|----|-----|--------|--------|-------------|---------|
+| SLO-001 | <!-- request success rate --> | <!-- 99.9% --> | <!-- 30d rolling --> | <!-- 0.1% --> | <!-- NFR-001, NFR-002 --> |
+
+## 2. SLO Details
+
+### SLO-001 — <!-- SLO name -->
+
+**SLI Definition**
+
+<!-- Precise definition of the Service Level Indicator, e.g. "proportion of
+HTTP requests returning 2xx within 500ms measured at the load balancer." -->
+
+**Target**: <!-- 99.9% -->
+
+**Window**: <!-- 30d rolling -->
+
+**Error Budget**: <!-- 0.1% — approximately 43 minutes of downtime per 30 days -->
+
+**Burn-Rate Alert Configuration**
+
+| Parameter | Value |
+|-----------|-------|
+| Fast window | <!-- 5m --> |
+| Slow window | <!-- 1h --> |
+| Threshold | <!-- 14.4x burn rate --> |
+| Channel | <!-- pagerduty-oncall --> |
+
+## 3. Monitoring Rules Summary
+
+| ID | Type | Condition | Severity | Channel | SLO Refs |
+|----|------|-----------|----------|---------|----------|
+| MON-001 | <!-- alert --> | <!-- error_rate > 1% --> | <!-- critical --> | <!-- pagerduty-oncall --> | <!-- SLO-001 --> |
+| MON-002 | <!-- alert --> | <!-- p99_latency > 2s --> | <!-- warning --> | <!-- slack-alerts --> | <!-- SLO-001 --> |
+
+## 4. Monitoring Rule Details
+
+### MON-001 — <!-- rule name -->
+
+**Type**: <!-- alert / recording rule -->
+
+**Condition**
+
+```
+<!-- e.g. rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01 -->
+```
+
+**Severity**: <!-- critical / warning / info -->
+
+**Channel**: <!-- pagerduty-oncall / slack-alerts -->
+
+**SLO Refs**: <!-- SLO-001 -->
+
+**Runbook**: <!-- link to RB-001 or placeholder -->
+
+## 5. Dashboards
+
+| ID | Title | Format | Panels Count |
+|----|-------|--------|-------------|
+| DASH-001 | <!-- Service Overview --> | <!-- Grafana JSON --> | <!-- 12 --> |
+| DASH-002 | <!-- SLO Burn-Down --> | <!-- Grafana JSON --> | <!-- 6 --> |
+
+## 6. Logging Configuration
+
+**Format**: <!-- structured JSON -->
+
+**Log Levels**
+
+| Level | Usage |
+|-------|-------|
+| <!-- debug --> | <!-- verbose development output --> |
+| <!-- info --> | <!-- normal operational events --> |
+| <!-- warn --> | <!-- recoverable anomalies --> |
+| <!-- error --> | <!-- failures requiring attention --> |
+
+**Correlation ID**: <!-- X-Request-ID header propagated across services -->
+
+**Sensitive Data Masking**
+
+| Field | Masking Strategy |
+|-------|-----------------|
+| <!-- email --> | <!-- partial: j***@example.com --> |
+| <!-- ssn --> | <!-- full redaction --> |
+
+**Retention**
+
+| Tier | Duration | Storage |
+|------|----------|---------|
+| <!-- hot --> | <!-- 30d --> | <!-- Elasticsearch --> |
+| <!-- cold --> | <!-- 90d --> | <!-- S3 Glacier --> |
+
+## 7. Distributed Tracing
+
+**Sampling Rate**: <!-- 10% head-based sampling -->
+
+**Propagation**: <!-- W3C Trace Context -->
+
+**Span Attributes**
+
+| Attribute | Source | Notes |
+|-----------|--------|-------|
+| <!-- http.method --> | <!-- instrumentation --> | <!-- GET, POST, etc. --> |
+| <!-- http.route --> | <!-- instrumentation --> | <!-- /api/v1/users/:id --> |
+| <!-- db.statement --> | <!-- instrumentation --> | <!-- sanitised query --> |
+
+## 8. Generated Config Files
+
+| File | Purpose |
+|------|---------|
+| <!-- monitoring/alerts.yml --> | <!-- alerting rules --> |
+| <!-- monitoring/dashboards/overview.json --> | <!-- Grafana dashboard --> |
+| <!-- monitoring/logging.yml --> | <!-- logging pipeline config --> |
+
+## 9. Upstream References
+
+- RE: <!-- NFR-001, NFR-002 -->
+- QA: <!-- QA-TC-001, QA-TC-005 -->

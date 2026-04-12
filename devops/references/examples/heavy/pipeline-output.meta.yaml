@@ -1,0 +1,146 @@
+artifact_id: DEVOPS-PL-001
+section: pipeline
+phase: approved
+progress:
+  section_completed: 1
+  section_total: 1
+  percent: 100
+approval:
+  state: approved
+  approver: bob
+  approved_at: 2026-04-11T16:00:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T14:00:00Z
+      notes: null
+    - state: changes_requested
+      approver: bob
+      at: 2026-04-11T14:30:00Z
+      notes: "add manual rollback procedure as fallback"
+    - state: pending
+      approver: bob
+      at: 2026-04-11T15:00:00Z
+      notes: null
+    - state: approved
+      approver: bob
+      at: 2026-04-11T16:00:00Z
+      notes: null
+upstream_refs:
+  - ARCH-COMP-001
+  - ARCH-COMP-002
+  - ARCH-COMP-003
+  - ARCH-COMP-004
+  - IMPL-CODE-001
+  - IMPL-GUIDE-001
+  - DEVOPS-OBS-001
+downstream_refs:
+  - DEVOPS-RB-001
+document_path: DEVOPS-PL-001.md
+created_at: 2026-04-11T13:00:00Z
+updated_at: 2026-04-11T16:00:00Z
+
+pipeline_config:
+  platform: github-actions
+  trigger:
+    branches: [main]
+    tags: ["v*"]
+    pull_requests: true
+  stages:
+    - name: build
+      steps: [checkout, setup-node, setup-go, restore-cache, install, lint, docker-build]
+      environment: ci
+      condition: always()
+    - name: unit-test
+      steps: [run-tests, upload-coverage]
+      environment: ci
+      condition: success()
+    - name: integration-test
+      steps: [start-deps, run-integration, collect-results, tear-down]
+      environment: ci
+      condition: success()
+    - name: security-scan
+      steps: [semgrep, dependency-audit, trivy, upload-sarif]
+      environment: ci
+      condition: success()
+    - name: staging-deploy
+      steps: [docker-push, helm-upgrade, smoke-test, integration-smoke]
+      environment: staging
+      condition: success() && branch == 'main'
+    - name: canary-deploy
+      steps: [docker-push, argo-rollout-setweight, slo-gate-check, promote-or-rollback]
+      environment: production
+      condition: success() && startsWith(ref, 'refs/tags/v')
+    - name: production-promote
+      steps: [approval-gate, argo-promote, verify, tag-release]
+      environment: production
+      condition: success()
+  caching:
+    dependency_key: "package-lock.json, go.sum"
+    artifact_paths: [dist/, bin/]
+  secrets:
+    - name: AWS_ACCESS_KEY_ID
+      source: github-secrets
+      injection_method: env
+    - name: AWS_SECRET_ACCESS_KEY
+      source: github-secrets
+      injection_method: env
+    - name: DATABASE_URL
+      source: aws-secrets-manager
+      injection_method: env
+    - name: PAYMENT_PROVIDER_KEY
+      source: vault
+      injection_method: env
+    - name: KAFKA_SASL_PASSWORD
+      source: aws-secrets-manager
+      injection_method: env
+  environments:
+    - name: dev
+      promotion_rule: auto-on-green
+      approval_required: false
+    - name: staging
+      promotion_rule: auto-on-green
+      approval_required: false
+    - name: production
+      promotion_rule: manual-gate
+      approval_required: true
+  deployment_method: canary
+  deployment_rationale: "SLO target 99.9% requires zero-downtime with graduated rollout; comprehensive observability supports canary-vs-baseline comparison"
+  rollback_trigger:
+    conditions:
+      - type: error_rate
+        threshold: "0.1%"
+        slo_ref: SLO-001
+      - type: latency_p99
+        threshold: "300ms"
+        slo_ref: SLO-002
+      - type: payment_failure_rate
+        threshold: "0.5%"
+        slo_ref: SLO-005
+      - type: order_error_rate
+        threshold: "0.1%"
+        slo_ref: SLO-003
+  rollback_procedure:
+    steps:
+      - "Argo Rollouts detects burn-rate breach from Prometheus analysis query"
+      - "kubectl argo rollouts abort $SERVICE -n production"
+      - "Verify SLO metrics return to normal within 5 minutes"
+      - "Notify #deploy-alerts and #incidents with deployment ID and rollback reason"
+      - "Create incident ticket if SLO was breached during rollback window"
+      - "Block subsequent deploys until incident is resolved"
+    verification: "Confirm error rate, latency, and payment success rate return below SLO thresholds for 10 minutes"
+    notification: "#deploy-alerts"
+  impl_refs: [IMPL-CODE-001]
+  arch_refs: [ARCH-COMP-001, ARCH-COMP-002, ARCH-COMP-003, ARCH-COMP-004]
+  config_files:
+    - path: .github/workflows/ci.yml
+      purpose: CI pipeline (build, test, scan)
+    - path: .github/workflows/deploy-staging.yml
+      purpose: Staging deployment pipeline
+    - path: .github/workflows/deploy-production.yml
+      purpose: Production canary deployment pipeline
+    - path: charts/api-gateway/values.staging.yaml
+      purpose: Staging Helm values for api-gateway
+    - path: charts/api-gateway/values.production.yaml
+      purpose: Production Helm values for api-gateway

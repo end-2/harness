@@ -1,0 +1,118 @@
+artifact_id: DEVOPS-OBS-001
+section: observability
+phase: approved
+progress:
+  section_completed: 4
+  section_total: 4
+  percent: 100
+approval:
+  state: approved
+  approver: alice
+  approved_at: 2026-04-11T15:00:00Z
+  notes: null
+  history:
+    - state: pending
+      approver: alice
+      at: 2026-04-11T14:30:00Z
+      notes: null
+    - state: approved
+      approver: alice
+      at: 2026-04-11T15:00:00Z
+      notes: null
+upstream_refs:
+  - ARCH-COMP-001
+  - IMPL-CODE-001
+downstream_refs:
+  - DEVOPS-PL-001
+document_path: DEVOPS-OBS-001.md
+created_at: 2026-04-11T13:00:00Z
+updated_at: 2026-04-11T15:00:00Z
+
+observability_config:
+  slo_definitions:
+    - id: SLO-001
+      sli: "1 - (sum(rate(http_requests_total{service='todo-api',status=~'5..'}[5m])) / sum(rate(http_requests_total{service='todo-api'}[5m])))"
+      target: 99.5
+      window: 30d
+      error_budget: 0.5
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:availability]
+    - id: SLO-002
+      sli: "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{service='todo-api'}[5m]))"
+      target: 99.5
+      window: 30d
+      error_budget: 0.5
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:performance]
+    - id: SLO-003
+      sli: "sum(rate(http_requests_total{service='todo-api',status=~'5..'}[5m])) / sum(rate(http_requests_total{service='todo-api'}[5m]))"
+      target: 99.0
+      window: 30d
+      error_budget: 1.0
+      burn_rate_alert:
+        fast_window: 5m
+        slow_window: 1h
+        threshold: 14.4
+      re_refs: [QA:availability]
+  monitoring_rules:
+    - id: MON-001
+      type: metric
+      condition: "availability burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-001]
+    - id: MON-002
+      type: metric
+      condition: "latency_p99 burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-002]
+    - id: MON-003
+      type: metric
+      condition: "error_rate burn_rate > 14.4x over 5m AND 1h"
+      threshold: 14.4
+      severity: critical
+      channel: pagerduty
+      slo_refs: [SLO-003]
+  dashboards:
+    - id: DASH-001
+      title: "Todo API Overview"
+      panels:
+        - title: Request Rate
+          query: "rate(http_requests_total{service='todo-api'}[5m])"
+          visualization: timeseries
+        - title: Error Rate
+          query: "rate(http_requests_total{service='todo-api',status=~'5..'}[5m]) / rate(http_requests_total{service='todo-api'}[5m])"
+          visualization: timeseries
+        - title: Latency p99
+          query: "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{service='todo-api'}[5m]))"
+          visualization: timeseries
+        - title: Error Budget Remaining
+          query: "1 - (slo:error_budget_consumed:ratio{slo='SLO-001'})"
+          visualization: gauge
+      format: grafana-json
+  logging_config:
+    format: json
+    level_default: info
+    correlation_id:
+      header: X-Request-ID
+      propagation: none
+    masking_rules: []
+    retention:
+      hot_days: 7
+      warm_days: 30
+      archive_days: 90
+  qa_refs: [QA:availability, QA:performance]
+  config_files:
+    - path: monitoring/prometheus-rules.yml
+      purpose: Alerting rules for SLO burn-rate
+    - path: monitoring/grafana-dashboards/todo-api.json
+      purpose: Todo API overview dashboard

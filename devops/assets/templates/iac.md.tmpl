@@ -1,0 +1,152 @@
+# Infrastructure Code
+
+<!--
+This document captures the Infrastructure-as-Code definitions: IaC tool,
+cloud provider, module inventory, environment configurations, state management,
+networking topology, and cost estimates. It is the DevOps counterpart to
+Arch's deployment diagram — grounded in real IaC modules and resources.
+
+ID convention: IAC-001, IAC-002, ...
+-->
+
+## 1. Infrastructure Summary
+
+| ID | Tool | Provider | Modules Count | Environments |
+|----|------|----------|---------------|--------------|
+| IAC-001 | <!-- Terraform / Pulumi / CloudFormation --> | <!-- AWS / GCP / Azure --> | <!-- 5 --> | <!-- dev, staging, prod --> |
+
+## 2. Module Inventory
+
+| Name | Path | Responsibility | Component Ref |
+|------|------|----------------|---------------|
+| <!-- networking --> | <!-- infra/modules/networking --> | <!-- VPC, subnets, security groups --> | <!-- ARCH-COMP-001 --> |
+| <!-- compute --> | <!-- infra/modules/compute --> | <!-- ECS tasks, auto-scaling --> | <!-- ARCH-COMP-002 --> |
+| <!-- database --> | <!-- infra/modules/database --> | <!-- RDS instance, backups --> | <!-- ARCH-COMP-003 --> |
+
+## 3. Module Details
+
+### <!-- networking -->
+
+**Path**: <!-- infra/modules/networking -->
+
+**Inputs**
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| <!-- vpc_cidr --> | <!-- string --> | <!-- 10.0.0.0/16 --> | <!-- CIDR block for the VPC --> |
+
+**Outputs**
+
+| Output | Description |
+|--------|-------------|
+| <!-- vpc_id --> | <!-- ID of the created VPC --> |
+| <!-- subnet_ids --> | <!-- List of subnet IDs --> |
+
+**Resources**
+
+| Resource Type | Name | Notes |
+|--------------|------|-------|
+| <!-- aws_vpc --> | <!-- main --> | <!-- primary VPC --> |
+| <!-- aws_subnet --> | <!-- private-app --> | <!-- application subnet --> |
+
+## 4. Environment Configuration
+
+### Dev
+
+<!-- Smaller instance types, single AZ, reduced replicas. -->
+
+| Parameter | Value |
+|-----------|-------|
+| <!-- instance_type --> | <!-- t3.small --> |
+| <!-- replicas --> | <!-- 1 --> |
+
+### Staging
+
+<!-- Mirrors prod topology with reduced capacity. -->
+
+| Parameter | Value |
+|-----------|-------|
+| <!-- instance_type --> | <!-- t3.medium --> |
+| <!-- replicas --> | <!-- 2 --> |
+
+### Prod
+
+<!-- Multi-AZ, auto-scaling enabled, full capacity. -->
+
+| Parameter | Value |
+|-----------|-------|
+| <!-- instance_type --> | <!-- m5.large --> |
+| <!-- replicas --> | <!-- 3 --> |
+
+## 5. State Management
+
+**Backend**: <!-- S3 / GCS / Azure Blob -->
+
+**Locking**: <!-- DynamoDB / native -->
+
+**Drift Detection**: <!-- scheduled plan / manual -->
+
+<!--
+Describe how state is stored, locked, and how configuration drift is detected
+and reconciled.
+-->
+
+## 6. Networking
+
+**VPC CIDR**: <!-- 10.0.0.0/16 -->
+
+**Subnets**
+
+| Subnet | CIDR | Type | AZ |
+|--------|------|------|----|
+| <!-- public-a --> | <!-- 10.0.1.0/24 --> | <!-- public --> | <!-- us-east-1a --> |
+| <!-- private-app-a --> | <!-- 10.0.10.0/24 --> | <!-- private --> | <!-- us-east-1a --> |
+
+**Security Groups**
+
+| Name | Inbound Rules | Outbound Rules |
+|------|--------------|----------------|
+| <!-- alb-sg --> | <!-- 443 from 0.0.0.0/0 --> | <!-- all --> |
+| <!-- app-sg --> | <!-- 8080 from alb-sg --> | <!-- all --> |
+
+**Load Balancers**
+
+| Name | Type | Listeners | Targets |
+|------|------|-----------|---------|
+| <!-- alb-main --> | <!-- ALB --> | <!-- HTTPS:443 --> | <!-- app-sg:8080 --> |
+
+## 7. Cost Estimates
+
+### Dev
+
+| Resource | Monthly Estimate |
+|----------|-----------------|
+| <!-- EC2 --> | <!-- $50 --> |
+| <!-- RDS --> | <!-- $80 --> |
+
+### Staging
+
+| Resource | Monthly Estimate |
+|----------|-----------------|
+| <!-- EC2 --> | <!-- $120 --> |
+| <!-- RDS --> | <!-- $150 --> |
+
+### Prod
+
+| Resource | Monthly Estimate |
+|----------|-----------------|
+| <!-- EC2 --> | <!-- $500 --> |
+| <!-- RDS --> | <!-- $400 --> |
+
+## 8. Generated IaC Files
+
+| File | Purpose |
+|------|---------|
+| <!-- infra/main.tf --> | <!-- root module --> |
+| <!-- infra/variables.tf --> | <!-- input variables --> |
+| <!-- infra/outputs.tf --> | <!-- exported outputs --> |
+
+## 9. Upstream References
+
+- Arch: <!-- ARCH-COMP-001, ARCH-COMP-002 -->
+- Constraints: <!-- NFR-001, CON-002 -->
