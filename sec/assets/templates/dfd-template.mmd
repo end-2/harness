@@ -1,0 +1,19 @@
+graph LR
+    subgraph "External"
+        EU[External User]
+        ES[External System]
+    end
+
+    subgraph "Trust Boundary: DMZ"
+        GW[API Gateway]
+    end
+
+    subgraph "Trust Boundary: Internal"
+        SVC[Service]
+        DB[(Data Store)]
+    end
+
+    EU -->|"request"| GW
+    ES -->|"webhook"| GW
+    GW -->|"authenticated"| SVC
+    SVC -->|"query"| DB

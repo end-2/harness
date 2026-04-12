@@ -1,0 +1,49 @@
+# Metadata skeleton for the Compliance Report section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: null
+section: compliance-report
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  rationale: null
+  conditions: []
+  history: []
+upstream_refs: []
+downstream_refs: []
+cross_refs:
+  threat_refs: []
+  vuln_refs: []
+document_path: null
+updated_at: null
+
+# Section-specific fields
+standard: null
+version: null
+scope: null
+overall_status: null
+total_requirements: 0
+compliant_count: 0
+non_compliant_count: 0
+not_applicable_count: 0
+findings: []
+# - requirement_id: ...
+#   title: ...
+#   status: compliant | non_compliant | partial | not_applicable
+#   evidence: ...
+#   gap_description: ...
+gap_summary: []
+# - severity: critical | high | medium | low
+#   gap: ...
+#   affected_requirements: []
+remediation_roadmap: []
+# - priority: 1
+#   action: ...
+#   estimated_effort: ...
+#   target_date: ...
+constraint_refs: []

@@ -1,0 +1,87 @@
+artifact_id: SEC-TM-001
+section: threat-model
+phase: approved
+progress:
+  section_completed: 4
+  section_total: 4
+  percent: 100
+approval:
+  state: approved
+  approver: alice
+  approved_at: 2026-04-11T15:00:00Z
+  rationale: "Light-mode threat model covers top threats for single-service CRUD API. No critical unmitigated risks. Rate limiting recommendation accepted as enhancement."
+  history:
+    - state: pending
+      approver: alice
+      at: 2026-04-11T14:00:00Z
+      notes: null
+    - state: approved
+      approver: alice
+      at: 2026-04-11T15:00:00Z
+      rationale: "Light-mode threat model covers top threats for single-service CRUD API."
+upstream_refs:
+  - ARCH-COMP-001
+  - ARCH-DEC-001
+  - ARCH-TECH-001
+  - IMPL-MAP-001
+  - IMPL-CODE-001
+  - IMPL-IDR-001
+  - RE-CON-001
+  - RE-QA-001
+downstream_refs:
+  - SEC-VA-001
+  - SEC-SR-001
+  - SEC-CR-001
+document_path: SEC-TM-001.md
+created_at: 2026-04-11T13:30:00Z
+updated_at: 2026-04-11T15:00:00Z
+
+threat_model:
+  mode: light
+  trust_boundaries:
+    - id: TB-001
+      name: External boundary
+      from: "User (internet)"
+      to: ARCH-COMP-001-api
+      classification: "untrusted → trusted"
+    - id: TB-002
+      name: Data boundary
+      from: ARCH-COMP-001-api
+      to: ARCH-COMP-001-db
+      classification: "trusted → data store"
+  threats:
+    - id: TM-001
+      category: spoofing
+      component_ref: ARCH-COMP-001-api
+      boundary_ref: TB-001
+      risk_level: high
+      mitigation_status: mitigated
+      mitigation: "JWT validation with algorithm pinning, expiry enforcement, secret rotation"
+    - id: TM-002
+      category: injection
+      component_ref: ARCH-COMP-001-db
+      boundary_ref: TB-002
+      risk_level: high
+      mitigation_status: mitigated
+      mitigation: "Parameterised queries via pg library"
+    - id: TM-003
+      category: information_disclosure
+      component_ref: ARCH-COMP-001-api
+      boundary_ref: null
+      risk_level: medium
+      mitigation_status: mitigated
+      mitigation: "Helmet headers, generic error responses in production"
+    - id: TM-004
+      category: elevation_of_privilege
+      component_ref: ARCH-COMP-001-api
+      boundary_ref: null
+      risk_level: high
+      mitigation_status: mitigated
+      mitigation: "Per-user ownership check in repository layer"
+  owasp_top10_status:
+    A01: needs_verification
+    A02: ok
+    A03: needs_verification
+    A05: ok
+    A07: needs_verification
+    A09: needs_verification

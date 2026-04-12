@@ -1,0 +1,243 @@
+artifact_id: SEC-TM-001
+section: threat-model
+phase: approved
+progress:
+  section_completed: 6
+  section_total: 6
+  percent: 100
+approval:
+  state: approved
+  approver: bob
+  approved_at: 2026-04-11T17:00:00Z
+  rationale: "Full STRIDE analysis covers all 8 components and 8 trust boundaries. 13 threats identified, 1 critical (TM-012 privilege escalation). All mitigations proposed and accepted. PCI DSS and GDPR implications mapped to compliance stage."
+  history:
+    - state: pending
+      approver: bob
+      at: 2026-04-11T15:30:00Z
+      notes: null
+    - state: in_review
+      approver: bob
+      at: 2026-04-11T16:00:00Z
+      notes: "Requested clarification on mTLS enforcement timeline"
+    - state: approved
+      approver: bob
+      at: 2026-04-11T17:00:00Z
+      rationale: "Full STRIDE analysis covers all 8 components. mTLS enforcement confirmed for v1."
+upstream_refs:
+  - ARCH-COMP-001
+  - ARCH-DEC-001
+  - ARCH-DEC-002
+  - ARCH-TECH-001
+  - ARCH-DIAG-001
+  - IMPL-MAP-001
+  - IMPL-MAP-002
+  - IMPL-MAP-003
+  - IMPL-MAP-004
+  - IMPL-MAP-005
+  - IMPL-CODE-001
+  - IMPL-IDR-001
+  - IMPL-GUIDE-001
+  - RE-CON-001
+  - RE-CON-002
+  - RE-CON-003
+  - RE-QA-001
+  - RE-QA-002
+downstream_refs:
+  - SEC-VA-001
+  - SEC-SR-001
+  - SEC-CR-001
+document_path: SEC-TM-001.md
+created_at: 2026-04-11T14:00:00Z
+updated_at: 2026-04-11T17:00:00Z
+
+threat_model:
+  mode: heavy
+  trust_boundaries:
+    - id: TB-001
+      name: Internet boundary
+      from: "End users (internet)"
+      to: ARCH-COMP-001-gw
+      classification: "untrusted → DMZ"
+    - id: TB-002
+      name: Gateway-to-services
+      from: ARCH-COMP-001-gw
+      to: internal service mesh
+      classification: "DMZ → trusted internal"
+    - id: TB-003
+      name: Service-to-database
+      from: each service
+      to: respective store
+      classification: "trusted → data store"
+    - id: TB-004
+      name: Service-to-service
+      from: "Order/Payment/Auth"
+      to: gRPC inter-service
+      classification: "trusted → trusted (lateral)"
+    - id: TB-005
+      name: External provider boundary
+      from: ARCH-COMP-001-payment
+      to: "external:stripe"
+      classification: "trusted → external provider"
+    - id: TB-006
+      name: Webhook ingress
+      from: "external:stripe"
+      to: ARCH-COMP-001-payment
+      classification: "untrusted → trusted"
+    - id: TB-007
+      name: Notification egress
+      from: ARCH-COMP-001-notif
+      to: "external:sendgrid, external:twilio"
+      classification: "trusted → external provider"
+    - id: TB-008
+      name: Message broker boundary
+      from: services
+      to: RabbitMQ
+      classification: "trusted → async channel"
+  threats:
+    - id: TM-001
+      category: spoofing
+      component_ref: ARCH-COMP-001-gw
+      boundary_ref: TB-001
+      risk_level: high
+      dread_score: 7.4
+      mitigation_status: mitigated
+      mitigation: "Short-lived JWTs, refresh rotation, HttpOnly/Secure flags, CSP"
+    - id: TM-002
+      category: spoofing
+      component_ref: ARCH-COMP-001-payment
+      boundary_ref: TB-006
+      risk_level: high
+      dread_score: 6.2
+      mitigation_status: mitigated
+      mitigation: "Stripe webhook signature verification"
+    - id: TM-003
+      category: spoofing
+      component_ref: ARCH-COMP-001-auth
+      boundary_ref: TB-004
+      risk_level: high
+      dread_score: 6.6
+      mitigation_status: mitigated
+      mitigation: "mTLS across service mesh"
+    - id: TM-004
+      category: tampering
+      component_ref: ARCH-COMP-001-order
+      boundary_ref: TB-003
+      risk_level: high
+      dread_score: 7.2
+      mitigation_status: mitigated
+      mitigation: "Parameterised queries via SQLAlchemy ORM"
+    - id: TM-005
+      category: tampering
+      component_ref: ARCH-COMP-001-order
+      boundary_ref: TB-008
+      risk_level: medium
+      dread_score: 4.6
+      mitigation_status: mitigated
+      mitigation: "Message schema validation, dead-letter queue"
+    - id: TM-006
+      category: repudiation
+      component_ref: ARCH-COMP-001-payment
+      boundary_ref: null
+      risk_level: medium
+      dread_score: 6.4
+      mitigation_status: mitigated
+      mitigation: "Immutable audit log for payment state transitions"
+    - id: TM-007
+      category: information_disclosure
+      component_ref: ARCH-COMP-001-gw
+      boundary_ref: TB-001
+      risk_level: high
+      dread_score: 7.6
+      mitigation_status: mitigated
+      mitigation: "Structured error codes, PII scrubbed from logs"
+    - id: TM-008
+      category: information_disclosure
+      component_ref: ARCH-COMP-001-notif
+      boundary_ref: TB-008
+      risk_level: medium
+      dread_score: 5.6
+      mitigation_status: mitigated
+      mitigation: "TLS for broker, message-level encryption for PII"
+    - id: TM-009
+      category: information_disclosure
+      component_ref: ARCH-COMP-001-orderdb
+      boundary_ref: TB-003
+      risk_level: high
+      dread_score: 6.6
+      mitigation_status: mitigated
+      mitigation: "Encrypted backups, log redaction"
+    - id: TM-010
+      category: denial_of_service
+      component_ref: ARCH-COMP-001-gw
+      boundary_ref: TB-001
+      risk_level: high
+      dread_score: 8.0
+      mitigation_status: mitigated
+      mitigation: "Kong rate limiting, WAF, auto-scaling"
+    - id: TM-011
+      category: denial_of_service
+      component_ref: ARCH-COMP-001-order
+      boundary_ref: TB-008
+      risk_level: medium
+      dread_score: 5.2
+      mitigation_status: mitigated
+      mitigation: "Queue depth limits, consumer back-pressure"
+    - id: TM-012
+      category: elevation_of_privilege
+      component_ref: ARCH-COMP-001-auth
+      boundary_ref: TB-002
+      risk_level: critical
+      dread_score: 7.4
+      mitigation_status: mitigated
+      mitigation: "RBAC middleware, tenant isolation at DB level, admin on separate port"
+    - id: TM-013
+      category: elevation_of_privilege
+      component_ref: ARCH-COMP-001-order
+      boundary_ref: null
+      risk_level: high
+      dread_score: 7.6
+      mitigation_status: mitigated
+      mitigation: "Ownership validation in repository, IDOR integration tests"
+  data_flow_security:
+    - flow_id: DF-001
+      from: User
+      to: API Gateway
+      sensitivity: high
+      encryption: "TLS 1.3"
+      compliance_ref: "GDPR Art. 32"
+    - flow_id: DF-002
+      from: Auth Service
+      to: Auth DB
+      sensitivity: high
+      encryption: "TLS + AES-256-at-rest"
+      compliance_ref: "GDPR Art. 32"
+    - flow_id: DF-003
+      from: Order Service
+      to: Order DB
+      sensitivity: high
+      encryption: "TLS + AES-256-at-rest"
+      compliance_ref: "GDPR Art. 32"
+    - flow_id: DF-004
+      from: Payment Service
+      to: "external:stripe"
+      sensitivity: critical
+      encryption: "TLS 1.2+"
+      compliance_ref: "PCI DSS 4.1"
+    - flow_id: DF-005
+      from: Payment Service
+      to: Pay DB
+      sensitivity: critical
+      encryption: "TLS + AES-256-at-rest"
+      compliance_ref: "PCI DSS 3.4"
+    - flow_id: DF-006
+      from: inter-service
+      to: service mesh
+      sensitivity: medium
+      encryption: mTLS
+      compliance_ref: null
+    - flow_id: DF-007
+      from: RabbitMQ
+      to: Notification Service
+      sensitivity: high
+      encryption: "TLS + message-level"
+      compliance_ref: "GDPR Art. 32"
