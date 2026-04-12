@@ -67,14 +67,9 @@ Produces: ARCH-DEC-001, ARCH-COMP-001, ARCH-TECH-001, ARCH-DIAG-001
 
 ### Step 4: impl:generate (automatic)
 
-### Steps 5-7: qa + sec + devops (parallel)
+### Steps 5-7: qa + sec + devops (parallel group)
 
-All three run simultaneously in isolated worktrees:
-```
-EnterWorktree → qa:generate → ExitWorktree
-EnterWorktree → sec:audit → ExitWorktree
-EnterWorktree → devops:pipeline → ExitWorktree
-```
+If the runtime supports safe isolation, these steps can run concurrently. Otherwise, run them one at a time after `impl`.
 
 ### Steps 8-9: verify
 

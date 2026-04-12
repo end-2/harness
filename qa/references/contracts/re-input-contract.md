@@ -4,7 +4,7 @@ How the QA skill reads the three RE artifacts and turns each field into a test-d
 
 ## Location and readiness
 
-- RE artifacts live in `./artifacts/re/` (override with `HARNESS_ARTIFACTS_DIR`).
+- RE artifacts live in the standalone location `./artifacts/re/`. In orchestrated runs, Orch passes the exact upstream RE artifact paths separately. `HARNESS_ARTIFACTS_DIR` still points to QA's own output directory.
 - The three sections must all be present:
   - `RE-SPEC-*` — requirements specification
   - `RE-CON-*` — constraints

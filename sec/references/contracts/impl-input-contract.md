@@ -4,7 +4,7 @@ How the Sec skill reads the four Impl artifacts and turns each field into a code
 
 ## Location and readiness
 
-- Impl artifacts live in `./artifacts/impl/` (override with `HARNESS_ARTIFACTS_DIR`, which points at the parent `artifacts/` directory).
+- Impl artifacts live in the standalone location `./artifacts/impl/`. In orchestrated runs, Orch passes the exact upstream Impl artifact paths separately. `HARNESS_ARTIFACTS_DIR` still points to Sec's own output directory.
 - The four sections must all be present:
   - `IMPL-MAP-*` — implementation map
   - `IMPL-CODE-*` — code structure

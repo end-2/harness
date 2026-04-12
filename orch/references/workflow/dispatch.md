@@ -1,6 +1,6 @@
 # Dispatch Stage — Intent Analysis and Routing
 
-Dispatch is the entry point for every orch invocation. It analyses the user's natural-language request (from `$ARGUMENTS`) and the current run state (from `current-run.md`, injected into SKILL.md) to decide what happens next.
+Dispatch is the entry point for every Orch invocation. It analyses the user's natural-language request from the current conversation turn and the current run state from `harness-output/current-run.md` (when present) to decide what happens next.
 
 ## Decision tree
 
@@ -80,8 +80,9 @@ A resume request is detected when:
 
 On resume:
 1. Read `run.meta.yaml` for the active run
-2. Call `run.py next --run <id>` to find the next pending step
-3. Jump to the pipeline stage starting from that step
+2. Call `run.py next --run <id>` to find ready steps, running blockers, or failed-step blockers
+3. If `ready_steps` is returned, jump to the pipeline stage from that step or step group
+4. If `waiting_on` or `blocked_on_failed` is returned, report that state to the user instead of advancing
 
 ## Output
 

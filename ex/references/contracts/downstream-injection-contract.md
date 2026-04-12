@@ -107,7 +107,7 @@ Architecture (EX-ARC-*)
 ## Injection lifecycle
 
 1. **Ex runs** → creates 4 artifacts → registers section-specific downstream refs
-2. **Downstream skill starts** → checks the same artifacts directory Ex wrote to: `HARNESS_ARTIFACTS_DIR` when orchestrated, or Ex's standalone output directory when run directly
+2. **Downstream skill starts** → Orch passes Ex's artifact directory explicitly in orchestrated runs, or the downstream skill reads Ex's standalone output directory when run directly
 3. **Downstream skill loads** the relevant `.md` files as context
 4. **Downstream skill proceeds** with its own analysis, informed by Ex context
 

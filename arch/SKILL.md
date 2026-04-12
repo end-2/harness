@@ -19,7 +19,7 @@ The command above lists existing arch artifacts, their phase, approval state, an
 
 ## Input / output contract
 
-**Input**: the three approved RE artifacts in `./artifacts/re/` (or wherever `HARNESS_ARTIFACTS_DIR` points). Specifically:
+**Input**: the three approved RE artifacts in the standard standalone location `./artifacts/re/`. In orchestrated runs, Orch passes the exact upstream RE artifact paths as context. `HARNESS_ARTIFACTS_DIR` still points to Arch's own output directory. Specifically:
 
 - `RE-REQ-*` — functional and non-functional requirements
 - `RE-CON-*` — constraints classified by `flexibility` (`hard` / `soft` / `negotiable`)

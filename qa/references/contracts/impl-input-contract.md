@@ -4,7 +4,7 @@ How the QA skill reads the four Impl artifacts and turns each field into a test-
 
 ## Location and readiness
 
-- Impl artifacts live in `./artifacts/impl/` (override with `HARNESS_ARTIFACTS_DIR`).
+- Impl artifacts live in the standalone location `./artifacts/impl/`. In orchestrated runs, Orch passes the exact upstream Impl artifact paths separately. `HARNESS_ARTIFACTS_DIR` still points to QA's own output directory.
 - The four sections must all be present:
   - `IMPL-MAP-*` — implementation map
   - `IMPL-CODE-*` — code structure

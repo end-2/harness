@@ -17,7 +17,7 @@ The command above lists existing impl artifacts, their phase, approval state, an
 
 ## Input / output contract
 
-**Input**: the four approved Arch artifacts in `./artifacts/arch/` (or wherever `HARNESS_ARTIFACTS_DIR` points). Specifically:
+**Input**: the four approved Arch artifacts in the standard standalone location `./artifacts/arch/`. In orchestrated runs, Orch passes the exact upstream Arch artifact paths as context. `HARNESS_ARTIFACTS_DIR` still points to Impl's own output directory. Specifically:
 
 - `ARCH-DEC-*` — Architecture Decisions (ADRs) and the structured decision table
 - `ARCH-COMP-*` — Component Structure (responsibilities, interfaces, dependencies, FR/NFR refs)

@@ -4,7 +4,7 @@ How the QA skill reads the four Arch artifacts and turns each field into a test-
 
 ## Location and readiness
 
-- Arch artifacts live in `./artifacts/arch/` (override with `HARNESS_ARTIFACTS_DIR`).
+- Arch artifacts live in the standalone location `./artifacts/arch/`. In orchestrated runs, Orch passes the exact upstream Arch artifact paths separately. `HARNESS_ARTIFACTS_DIR` still points to QA's own output directory.
 - The four sections must all be present:
   - `ARCH-DEC-*` — decisions
   - `ARCH-COMP-*` — components

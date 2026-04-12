@@ -37,6 +37,8 @@ export HARNESS_RUN_ID="<run_id>"
 export SKILL_DIR="<repo-root>/<skill>"
 ```
 
+`HARNESS_ARTIFACTS_DIR` always points to the current skill's output directory. Orch must pass upstream artifact directories separately.
+
 ### 2. Context assembly
 
 Provide the skill with:
@@ -46,19 +48,12 @@ Provide the skill with:
 
 ### 3. Agent spawning
 
-Use the Agent tool to spawn the skill as a subagent:
-
-```
-Agent(
-    description: "<skill>:<agent> execution",
-    prompt: <assembled context + task instructions>
-)
-```
+Use `spawn_agent` when the user's request authorizes orchestration or delegation. If delegation is unavailable, execute the step locally and keep the same environment/context contract.
 
 ### 4. Result collection
 
 After the skill completes, collect:
-- Artifact IDs produced (from the skill's return message)
+- Artifact IDs produced (from the skill's return message and/or the generated `.meta.yaml` files)
 - Artifact phases (from `run.py observe`)
 - Any errors or escalation signals
 

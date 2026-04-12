@@ -24,9 +24,10 @@ This command:
 1. Generates a run ID: `YYYYMMDD-HHmmss-<4hex>`
 2. Creates the directory tree: `<output-root>/runs/<run_id>/` with subdirs for each skill
 3. Initialises `run.meta.yaml` with pipeline steps, all in `pending` status
-4. Creates an empty `calls.log`
-5. Renders `current-run.md` showing the new run
-6. Returns JSON with `run_id` and `run_dir`
+4. Creates or refreshes `pipeline.meta.yaml` and marks the run as active
+5. Creates an empty `calls.log`
+6. Renders `current-run.md` showing the new run
+7. Returns JSON with `run_id` and `run_dir`
 
 ### CONFIGURE
 
@@ -92,20 +93,20 @@ python ${SKILL_DIR}/scripts/run.py complete --run <id>
 
 This:
 1. Sets run status to `completed` and records `ended_at`
-2. Updates `current-run.md` to show idle state with last run reference
-3. Renders final `run.meta.md`
+2. Generates `project-structure.md` and `release-note.md`
+3. Updates `current-run.md` to show idle state with last run reference
+4. Renders final `run.meta.md`
+
+`complete` only succeeds when every step is already terminal (`completed` or `skipped`).
 
 ## Resume support
 
 When resuming a paused or failed run:
 
 1. Read `run.meta.yaml` to find the current state
-2. Call `run.py next --run <id>` to identify the next pending step
-3. For failed steps that need retry:
-   ```bash
-   python ${SKILL_DIR}/scripts/run.py update-state --run <id> --step <idx> --status running
-   ```
-4. Jump to the pipeline stage starting from that step
+2. Call `run.py next --run <id>` to identify ready steps, running blockers, or failed-step blockers
+3. If `ready_steps` is returned, jump to the pipeline stage from that step or step group
+4. If `blocked_on_failed` is returned, resolve or retry the failed step before continuing
 
 Resume preserves all completed step artifacts — only pending or failed steps re-execute.
 

@@ -19,7 +19,7 @@ The first command lists existing QA artifacts with their phase, approval state, 
 
 ## Input / output contract
 
-**Input**: the approved RE, Arch, and Impl artifacts under `./artifacts/re/`, `./artifacts/arch/`, and `./artifacts/impl/` (or wherever `HARNESS_ARTIFACTS_DIR` points). Specifically:
+**Input**: the approved RE, Arch, and Impl artifacts under the standard standalone locations `./artifacts/re/`, `./artifacts/arch/`, and `./artifacts/impl/`. In orchestrated runs, Orch passes the exact upstream artifact paths as context. `HARNESS_ARTIFACTS_DIR` still points to QA's own output directory. Specifically:
 
 - `RE-SPEC-*` — Requirements Specification (FRs and NFRs with `acceptance_criteria`, `priority`, `dependencies`)
 - `RE-CON-*` — Constraints (`type`, `flexibility`, `rationale`)

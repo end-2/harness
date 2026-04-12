@@ -21,7 +21,7 @@ The command above lists existing sec artifacts, their phase, approval state, and
 
 ## Input / output contract
 
-**Input**: approved Arch and Impl artifacts in `./artifacts/arch/` and `./artifacts/impl/` (or wherever `HARNESS_ARTIFACTS_DIR` points). Specifically:
+**Input**: approved Arch and Impl artifacts in the standard standalone locations `./artifacts/arch/` and `./artifacts/impl/`. In orchestrated runs, Orch passes the exact upstream artifact paths as context. `HARNESS_ARTIFACTS_DIR` still points to Sec's own output directory. Specifically:
 
 From Arch:
 - `ARCH-DEC-*` — Architecture Decisions with `re_refs` and trade-offs

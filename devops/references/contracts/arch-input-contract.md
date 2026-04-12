@@ -4,7 +4,7 @@ How the DevOps skill reads the four Arch artifacts and turns each field into an 
 
 ## Location and readiness
 
-- Arch artifacts live in `./artifacts/arch/` (override with `HARNESS_ARTIFACTS_DIR`, which points at the parent `artifacts/` directory).
+- Arch artifacts live in the standalone location `./artifacts/arch/`. In orchestrated runs, Orch passes the exact upstream Arch artifact paths separately. `HARNESS_ARTIFACTS_DIR` still points to DevOps's own output directory.
 - The four sections must all be present:
   - `ARCH-DEC-*` — decisions
   - `ARCH-COMP-*` — components
@@ -12,7 +12,7 @@ How the DevOps skill reads the four Arch artifacts and turns each field into an 
   - `ARCH-DIAG-*` — diagrams
 - Every one must be in phase `approved`. If any is in `draft` / `in_review` / `revising`, stop and tell the user — DevOps must not run on unstable input.
 
-Use `python ${SKILL_DIR}/../arch/scripts/artifact.py list` (or read the metadata files directly) to confirm. If only the DevOps `artifact.py` is available locally, read the Arch YAML files with a small script that walks `./artifacts/arch/*.meta.yaml`.
+Use `python ${SKILL_DIR}/../arch/scripts/artifact.py list` (or read the metadata files directly) to confirm. If Orch provided a different upstream directory, walk that directory instead of assuming `./artifacts/arch/`.
 
 ## ARCH-DEC-* → deployment shape
 

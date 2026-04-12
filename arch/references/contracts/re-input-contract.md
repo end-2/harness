@@ -12,7 +12,7 @@ Arch consumes three RE artifacts. This document is the exact parsing rule — wh
 
 All three must be in phase `approved`. If any is still `draft`, `in_review`, or `revising`, stop and tell the user — running Arch on unstable input will produce decisions you will throw away.
 
-Override the artifact root with `HARNESS_ARTIFACTS_DIR` if the project uses a non-default location.
+In standalone runs, read these artifacts from `./artifacts/re/`. In orchestrated runs, Orch passes the exact RE artifact paths separately. Do not reinterpret `HARNESS_ARTIFACTS_DIR` as an upstream RE root; that variable still points to Arch's own output directory.
 
 ## RE → Arch mapping
 

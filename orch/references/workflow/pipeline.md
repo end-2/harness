@@ -17,15 +17,17 @@ For each step in the pipeline:
    - Set environment variables:
      HARNESS_ARTIFACTS_DIR = <output-root>/runs/<run_id>/<skill>
      HARNESS_RUN_ID = <run_id>
+   - Remember: HARNESS_ARTIFACTS_DIR is the current step's output directory, not a shared parent artifacts root
 
 3. Assemble context for the skill
-   - Upstream artifacts: Read completed skill outputs from runs/<id>/<prev-skill>/
+   - Upstream artifacts: Read completed skill outputs from runs/<id>/<prev-skill>/ and pass those paths explicitly
    - Behavioural rules: Read and inject rules from references/rules/
    - Skill entry point: <skill>/SKILL.md
 
-4. Spawn the skill as a subagent (Agent tool)
-   - Pass: skill path, upstream artifacts, rules, environment variables
-   - For parallel groups: use EnterWorktree for isolation
+4. Execute the skill
+   - Preferred: use `spawn_agent` when the user's request authorizes orchestration or delegation
+   - Fallback: execute locally in sequence when delegation is unavailable
+   - Pass: skill path, upstream artifact paths, rules, environment variables
 
 5. Monitor execution
    - If skill signals needs_user_input --> delegate to relay stage
@@ -42,7 +44,7 @@ For each step in the pipeline:
 
 ## Skill spawning protocol
 
-When spawning a content skill, construct the Agent prompt with:
+When spawning a content skill, construct the prompt with:
 
 ```
 You are executing as part of an orchestrated pipeline run.
@@ -56,7 +58,7 @@ HARNESS_ARTIFACTS_DIR=<output-root>/runs/<run_id>/<skill>
 HARNESS_RUN_ID=<run_id>
 
 ## Upstream context
-<insert upstream artifact summaries or paths>
+<insert upstream artifact summaries and exact upstream artifact paths>
 
 ## Behavioural rules
 <insert contents of references/rules/base.md>
@@ -70,15 +72,14 @@ Write all artifacts to the HARNESS_ARTIFACTS_DIR path.
 
 ## Parallel execution
 
-Steps with the same `parallel_group` value run concurrently. Each parallel skill must be isolated:
+Steps with the same `parallel_group` value are logically parallel. Execute them concurrently only when the runtime can isolate code changes safely:
 
 1. **Before the group**: Ensure all preceding sequential steps are completed
 2. **For each skill in the group**:
-   - Use `EnterWorktree` to create an isolated git worktree
-   - Spawn the skill subagent in that worktree
-   - The skill writes artifacts to its `HARNESS_ARTIFACTS_DIR` (which is inside the run directory, not the worktree)
-3. **After all complete**: Use `ExitWorktree` for each, merge any code changes back
-4. **Gate**: All parallel skills must complete before proceeding to the next sequential step
+   - If safe isolated working directories are available, run the steps concurrently
+   - Otherwise, run the steps one at a time after `impl`
+   - In every case, the skill writes artifacts to its own `HARNESS_ARTIFACTS_DIR`
+3. **Gate**: All parallel-group steps must reach terminal states before the next sequential step
 
 If any parallel skill fails, the others continue to completion. Record the failure and decide:
 - If the failed skill is optional for downstream steps → mark as failed, continue
@@ -135,5 +136,5 @@ When all steps are completed (or the final step finishes):
 2. Generate completion reports:
    - `project-structure.md`: Directory layout, tech stack summary, build/run guide
    - `release-note.md`: Skills executed, key decisions, quality/security results, known limitations
-3. Call `run.py complete --run <id>`
+3. Call `run.py complete --run <id>` only after every step is `completed` or `skipped`
 4. Present the completion summary to the user
