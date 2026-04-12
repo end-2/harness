@@ -18,11 +18,11 @@ Verify output depth follows Arch/Impl mode. The goal is correct sizing: a single
 **Observability stack**: Prometheus + Grafana only. No Loki, no Tempo.
 
 **Scenarios**:
-- 1–2 integration scenarios (main happy paths from sequence diagrams).
+- 1 integration scenario (primary happy path).
 - 1 failure scenario (primary dependency unavailability).
-- 0–1 load scenario (optional, only if SLO has a latency target).
 - 1 observability scenario (SLO metric collection check).
-- **Total**: ≤ 3 scenarios.
+- 0–1 load scenario (optional, only if an SLO has a latency target).
+- **Total**: 3-4 scenarios.
 
 **Evidence collection**:
 - HTTP responses.

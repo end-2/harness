@@ -61,8 +61,22 @@ REQUIRED_META_FIELDS = (
     "upstream_refs",
     "downstream_refs",
     "document_path",
+    "created_at",
     "updated_at",
 )
+
+SCENARIO_CATEGORIES = (
+    "integration",
+    "failure",
+    "load",
+    "observability",
+)
+
+SECTION_PAYLOAD_KEYS = {
+    "environment": "environment_config",
+    "scenario": "verification_scenarios",
+    "report": "verification_report",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -410,21 +424,340 @@ def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
     for field in REQUIRED_META_FIELDS:
         if field not in data:
             errors.append(f"{path.name}: missing field {field!r}")
+    artifact_id = data.get("artifact_id")
+    section = data.get("section")
+    if not isinstance(artifact_id, str) or not artifact_id.strip():
+        errors.append(f"{path.name}: artifact_id must be a non-empty string")
+    elif section in SECTION_PREFIX:
+        prefix = SECTION_PREFIX[section]
+        if not artifact_id.startswith(prefix + "-"):
+            errors.append(
+                f"{path.name}: artifact_id {artifact_id!r} does not match "
+                f"section prefix {prefix!r}"
+            )
     phase = data.get("phase")
     if phase not in PHASES:
         errors.append(f"{path.name}: unknown phase {phase!r}")
-    section = data.get("section")
     if section not in SECTIONS:
         errors.append(f"{path.name}: unknown section {section!r}")
-    approval = data.get("approval") or {}
-    state = approval.get("state")
-    if state and state not in APPROVAL_STATES:
-        errors.append(f"{path.name}: unknown approval state {state!r}")
+    errors.extend(_validate_progress(data.get("progress"), path.name))
+    errors.extend(_validate_approval(data.get("approval"), phase, path.name))
+    errors.extend(_validate_timestamp("created_at", data.get("created_at"), path.name))
+    errors.extend(_validate_timestamp("updated_at", data.get("updated_at"), path.name))
+    errors.extend(_validate_ref_list("upstream_refs", data.get("upstream_refs"), path.name))
+    errors.extend(
+        _validate_ref_list("downstream_refs", data.get("downstream_refs"), path.name)
+    )
     doc_rel = data.get("document_path")
-    if doc_rel:
+    if doc_rel and isinstance(doc_rel, str):
         doc_path = path.parent / doc_rel
         if not doc_path.exists():
             errors.append(f"{path.name}: document_path missing: {doc_rel}")
+    elif doc_rel is not None:
+        errors.append(f"{path.name}: document_path must be a string")
+    errors.extend(_validate_section_payload(data, path.name))
+    return errors
+
+
+def _validate_timestamp(
+    field_name: str,
+    value: Any,
+    context: str,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{context}: {field_name} must be a non-empty string")
+        return errors
+    try:
+        dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        errors.append(
+            f"{context}: {field_name} must be an ISO 8601 UTC timestamp "
+            f"(YYYY-MM-DDTHH:MM:SSZ)"
+        )
+    return errors
+
+
+def _validate_ref_list(
+    field_name: str,
+    value: Any,
+    context: str,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, list):
+        return [f"{context}: {field_name} must be a list"]
+    for idx, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            errors.append(
+                f"{context}: {field_name}[{idx}] must be a non-empty string"
+            )
+    return errors
+
+
+def _validate_progress(progress: Any, context: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(progress, dict):
+        return [f"{context}: progress must be a mapping"]
+    completed = progress.get("section_completed")
+    total = progress.get("section_total")
+    percent = progress.get("percent")
+    for field_name, value in (
+        ("section_completed", completed),
+        ("section_total", total),
+        ("percent", percent),
+    ):
+        if not isinstance(value, int):
+            errors.append(f"{context}: progress.{field_name} must be an integer")
+    if errors:
+        return errors
+    if total < 0:
+        errors.append(f"{context}: progress.section_total must be >= 0")
+    if completed < 0:
+        errors.append(f"{context}: progress.section_completed must be >= 0")
+    if total == 0:
+        if completed != 0 or percent != 0:
+            errors.append(
+                f"{context}: zero-total progress must stay at 0/0 (0%) until work starts"
+            )
+        return errors
+    if completed > total:
+        errors.append(
+            f"{context}: progress.section_completed must be <= progress.section_total"
+        )
+    expected_percent = int(round(100 * completed / total))
+    if percent != expected_percent:
+        errors.append(
+            f"{context}: progress.percent must equal {expected_percent} for "
+            f"{completed}/{total}"
+        )
+    return errors
+
+
+def _validate_approval(approval: Any, phase: Any, context: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(approval, dict):
+        return [f"{context}: approval must be a mapping"]
+    state = approval.get("state")
+    if state not in APPROVAL_STATES:
+        errors.append(f"{context}: unknown approval state {state!r}")
+    approver = approval.get("approver")
+    if approver is not None and not isinstance(approver, str):
+        errors.append(f"{context}: approval.approver must be a string or null")
+    approved_at = approval.get("approved_at")
+    if approved_at is not None:
+        errors.extend(_validate_timestamp("approval.approved_at", approved_at, context))
+    notes = approval.get("notes")
+    if notes is not None and not isinstance(notes, str):
+        errors.append(f"{context}: approval.notes must be a string or null")
+    history = approval.get("history")
+    if not isinstance(history, list):
+        errors.append(f"{context}: approval.history must be a list")
+    else:
+        for idx, item in enumerate(history):
+            if not isinstance(item, dict):
+                errors.append(f"{context}: approval.history[{idx}] must be a mapping")
+                continue
+            item_state = item.get("state")
+            if item_state not in APPROVAL_STATES:
+                errors.append(
+                    f"{context}: approval.history[{idx}].state has invalid value "
+                    f"{item_state!r}"
+                )
+            if not isinstance(item.get("approver"), str) or not item["approver"].strip():
+                errors.append(
+                    f"{context}: approval.history[{idx}].approver must be a "
+                    "non-empty string"
+                )
+            errors.extend(
+                _validate_timestamp(
+                    f"approval.history[{idx}].at",
+                    item.get("at"),
+                    context,
+                )
+            )
+            if item.get("notes") is not None and not isinstance(item.get("notes"), str):
+                errors.append(
+                    f"{context}: approval.history[{idx}].notes must be a string or null"
+                )
+    if state == "approved":
+        if phase != "approved":
+            errors.append(
+                f"{context}: approval.state 'approved' requires phase 'approved'"
+            )
+        if approved_at is None:
+            errors.append(
+                f"{context}: approval.approved_at is required when state is 'approved'"
+            )
+    elif phase == "approved":
+        errors.append(
+            f"{context}: phase 'approved' requires approval.state 'approved'"
+        )
+    return errors
+
+
+def _validate_string_list(
+    field_name: str,
+    value: Any,
+    context: str,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, list):
+        return [f"{context}: {field_name} must be a list"]
+    for idx, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            errors.append(f"{context}: {field_name}[{idx}] must be a non-empty string")
+    return errors
+
+
+def _validate_section_payload(data: dict[str, Any], context: str) -> list[str]:
+    errors: list[str] = []
+    section = data.get("section")
+    payload_key = SECTION_PAYLOAD_KEYS.get(section)
+    if payload_key is None:
+        return errors
+    if payload_key not in data:
+        return [f"{context}: missing section payload {payload_key!r}"]
+    payload = data.get(payload_key)
+    if section == "environment":
+        errors.extend(_validate_environment_payload(payload, context))
+    elif section == "scenario":
+        errors.extend(_validate_scenario_payload(payload, context))
+    elif section == "report":
+        errors.extend(_validate_report_payload(payload, context))
+    return errors
+
+
+def _validate_environment_payload(payload: Any, context: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return [f"{context}: environment_config must be a mapping"]
+    mode = payload.get("mode")
+    if mode is not None and mode not in ("light", "heavy"):
+        errors.append(f"{context}: environment_config.mode must be light, heavy, or null")
+    compose_file = payload.get("compose_file")
+    if compose_file is not None and not isinstance(compose_file, str):
+        errors.append(f"{context}: environment_config.compose_file must be a string or null")
+    if not isinstance(payload.get("services"), list):
+        errors.append(f"{context}: environment_config.services must be a list")
+    if not isinstance(payload.get("observability_stack"), dict):
+        errors.append(
+            f"{context}: environment_config.observability_stack must be a mapping"
+        )
+    network_topology = payload.get("network_topology")
+    if not isinstance(network_topology, dict):
+        errors.append(
+            f"{context}: environment_config.network_topology must be a mapping"
+        )
+    else:
+        if not isinstance(network_topology.get("networks"), list):
+            errors.append(
+                f"{context}: environment_config.network_topology.networks must be a list"
+            )
+        if not isinstance(network_topology.get("exposed_ports"), list):
+            errors.append(
+                f"{context}: environment_config.network_topology.exposed_ports "
+                "must be a list"
+            )
+    if not isinstance(payload.get("startup_order"), list):
+        errors.append(f"{context}: environment_config.startup_order must be a list")
+    if not isinstance(payload.get("instrumentation_status"), dict):
+        errors.append(
+            f"{context}: environment_config.instrumentation_status must be a mapping"
+        )
+    for refs_field in ("impl_refs", "devops_refs", "arch_refs"):
+        errors.extend(
+            _validate_string_list(
+                f"environment_config.{refs_field}",
+                payload.get(refs_field),
+                context,
+            )
+        )
+    return errors
+
+
+def _validate_scenario_payload(payload: Any, context: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, list):
+        return [f"{context}: verification_scenarios must be a list"]
+    for idx, item in enumerate(payload):
+        if not isinstance(item, dict):
+            errors.append(f"{context}: verification_scenarios[{idx}] must be a mapping")
+            continue
+        for field_name in (
+            "id",
+            "category",
+            "title",
+            "description",
+            "preconditions",
+            "steps",
+            "expected_results",
+            "evidence_type",
+        ):
+            if field_name not in item:
+                errors.append(
+                    f"{context}: verification_scenarios[{idx}] missing field "
+                    f"{field_name!r}"
+                )
+        category = item.get("category")
+        if category not in SCENARIO_CATEGORIES:
+            errors.append(
+                f"{context}: verification_scenarios[{idx}].category has invalid "
+                f"value {category!r}"
+            )
+        for field_name in (
+            "preconditions",
+            "steps",
+            "expected_results",
+            "evidence_type",
+        ):
+            if field_name in item and not isinstance(item.get(field_name), list):
+                errors.append(
+                    f"{context}: verification_scenarios[{idx}].{field_name} must be a list"
+                )
+        for refs_field in ("arch_refs", "re_refs", "slo_refs"):
+            if refs_field in item:
+                errors.extend(
+                    _validate_string_list(
+                        f"verification_scenarios[{idx}].{refs_field}",
+                        item.get(refs_field),
+                        context,
+                    )
+                )
+    return errors
+
+
+def _validate_report_payload(payload: Any, context: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return [f"{context}: verification_report must be a mapping"]
+    verdict = payload.get("verdict")
+    if verdict is not None and verdict not in ("pass", "pass_with_issues", "fail"):
+        errors.append(
+            f"{context}: verification_report.verdict must be pass, "
+            "pass_with_issues, fail, or null"
+        )
+    for field_name in (
+        "scenario_results",
+        "evidence_artifacts",
+        "issues",
+        "slo_validation",
+        "feedback",
+        "arch_refs",
+        "impl_refs",
+        "devops_refs",
+        "re_refs",
+    ):
+        if not isinstance(payload.get(field_name), list):
+            errors.append(f"{context}: verification_report.{field_name} must be a list")
+    environment_health = payload.get("environment_health")
+    if not isinstance(environment_health, dict):
+        errors.append(
+            f"{context}: verification_report.environment_health must be a mapping"
+        )
+    elif not isinstance(environment_health.get("services"), list):
+        errors.append(
+            f"{context}: verification_report.environment_health.services must be a list"
+        )
     return errors
 
 
@@ -511,6 +844,27 @@ REPORT_REQUIRED_FIELDS = (
     "target_refs",
     "verdict",
     "summary",
+)
+REPORT_ITEM_CLASSIFICATIONS = {
+    "scenario": {
+        "content_draft",
+        "coverage_gap",
+        "source_ambiguity",
+    },
+    "report": {
+        "verdict_summary",
+        "impl_feedback",
+        "devops_feedback",
+        "arch_feedback",
+        "traceability_gap",
+        "slo_gap",
+    },
+}
+REPORT_META_OPS = (
+    "set-progress",
+    "set-phase",
+    "link",
+    "approve",
 )
 
 
@@ -657,14 +1011,52 @@ def cmd_report_validate(args: argparse.Namespace) -> int:
             f"skill mismatch: report says {fm['skill']!r}, "
             f"this script is for {SKILL_NAME!r}"
         )
-    if "target_refs" in fm and not isinstance(fm["target_refs"], list):
-        errors.append("target_refs must be a list")
-    if "proposed_meta_ops" in fm and not isinstance(
-        fm["proposed_meta_ops"], list
+    if "report_id" in fm and (
+        not isinstance(fm["report_id"], str) or not fm["report_id"].strip()
     ):
-        errors.append("proposed_meta_ops must be a list")
-    if "items" in fm and not isinstance(fm["items"], list):
-        errors.append("items must be a list")
+        errors.append("report_id must be a non-empty string")
+    if "stage" in fm and (not isinstance(fm["stage"], str) or not fm["stage"].strip()):
+        errors.append("stage must be a non-empty string")
+    if "created_at" in fm:
+        errors.extend(_validate_timestamp("created_at", fm["created_at"], p.name))
+    if "target_refs" in fm:
+        errors.extend(_validate_ref_list("target_refs", fm["target_refs"], p.name))
+    proposed_meta_ops = fm.get("proposed_meta_ops")
+    if proposed_meta_ops is not None:
+        if not isinstance(proposed_meta_ops, list):
+            errors.append("proposed_meta_ops must be a list")
+        else:
+            for idx, op in enumerate(proposed_meta_ops):
+                if not isinstance(op, dict):
+                    errors.append(f"proposed_meta_ops[{idx}] must be a mapping")
+                    continue
+                cmd = op.get("cmd")
+                if cmd not in REPORT_META_OPS:
+                    errors.append(
+                        f"proposed_meta_ops[{idx}].cmd has invalid value {cmd!r}"
+                    )
+    items = fm.get("items")
+    if items is not None:
+        if not isinstance(items, list):
+            errors.append("items must be a list")
+        else:
+            allowed_classifications = REPORT_ITEM_CLASSIFICATIONS.get(
+                fm.get("kind"),
+                set(),
+            )
+            for idx, item in enumerate(items):
+                if not isinstance(item, dict):
+                    errors.append(f"items[{idx}] must be a mapping")
+                    continue
+                classification = item.get("classification")
+                if classification not in allowed_classifications:
+                    errors.append(
+                        f"items[{idx}].classification has invalid value "
+                        f"{classification!r} for kind {fm.get('kind')!r}"
+                    )
+                message = item.get("message")
+                if not isinstance(message, str) or not message.strip():
+                    errors.append(f"items[{idx}].message must be a non-empty string")
     if not (fm.get("summary") or "").strip():
         errors.append("summary is empty (subagent must write a one-line summary)")
     stripped_body = "\n".join(

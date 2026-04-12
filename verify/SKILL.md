@@ -68,7 +68,7 @@ Verify output depth follows Arch/Impl mode. A single-service CRUD app does not n
 
 | Mode | Trigger (from upstream artifacts) | Output style |
 |------|----------------------------------|--------------|
-| **light** | Arch components ≤ 3, single deployment environment | Single docker-compose with app services + basic infra. Prometheus + Grafana only. ≤ 3 core scenarios (health check, main happy path, one failure). Basic metric collection validation. |
+| **light** | Arch components ≤ 3, single deployment environment | Single docker-compose with app services + basic infra. Prometheus + Grafana only. 3 core scenarios (happy path, main failure, observability check), plus an optional smoke-load scenario when a latency SLO exists. |
 | **heavy** | Arch components > 3 or multi-environment/multi-region | Full observability stack (Prometheus + Grafana + Loki + Tempo). Comprehensive scenarios: integration + failure + load + observability. Distributed tracing propagation validation. SLO metric collection verification. Log masking verification. |
 
 Pick the mode at the **start** of `provision`, after reading the upstream artifacts. Tell the user which mode you chose and why. The user may override. Full rules: [references/adaptive-depth.md](references/adaptive-depth.md).
@@ -166,7 +166,8 @@ Load [references/workflow/scenario.md](references/workflow/scenario.md).
 
 - Derive **integration scenarios** from `ARCH-DIAG-*.sequence` — each sequence diagram becomes one or more scenarios.
 - Derive **failure scenarios** from `ARCH-COMP-*.dependencies` — for each dependency, test service unavailability, high latency, and error responses.
-- Derive **observability scenarios** from `DEVOPS-OBS-*` ��� SLO metric collection, alert rule firing, dashboard rendering, log format and masking.
+- Derive **load scenarios** from `DEVOPS-OBS-*.slo_definitions` when a light smoke-load check is justified.
+- Derive **observability scenarios** from `DEVOPS-OBS-*` — SLO metric collection, alert rule firing, dashboard rendering, log format, and masking.
 - Derive **runbook reproduction scenarios** from `DEVOPS-RB-*.trigger_condition` — reproduce the trigger and verify diagnosis steps work.
 
 Create the Verification Scenario artifact:

@@ -28,9 +28,9 @@ progress:
   percent: 67
 ```
 
-- `section_total > 0` required when set.
+- `section_total` may be `0` for a freshly initialized artifact; once work starts it should be `> 0`.
 - `0 <= section_completed <= section_total`.
-- `percent` is derived from the two counts; the script computes it and rejects incoherent values.
+- `percent` is derived from the two counts; `0/0` must remain `0%`, otherwise the script computes and enforces the exact value.
 
 ## `approval` object
 

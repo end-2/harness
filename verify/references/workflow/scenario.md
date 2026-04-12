@@ -87,11 +87,11 @@ Each scenario must include:
 
 | Aspect | Light mode | Heavy mode |
 |--------|-----------|-----------|
-| Integration scenarios | 1–2 (main happy paths) | One per sequence diagram |
+| Integration scenarios | 1 (primary happy path) | One per sequence diagram |
 | Failure scenarios | 1 (main dependency) | One per dependency + pattern |
 | Load scenarios | 0–1 (optional) | 1 (concurrent burst) |
 | Observability scenarios | SLO metric check + basic log format | Full: SLO + alerts + dashboards + masking + tracing + runbooks |
-| Total scenarios | 3 max | Comprehensive |
+| Total scenarios | 3-4 | Comprehensive |
 
 ## Output
 
