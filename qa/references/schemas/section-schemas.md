@@ -1,6 +1,6 @@
 # Section Schemas
 
-The four QA sections each carry their own structured block inside the metadata file. The block mirrors the tables in the paired markdown document — the markdown is the human-readable source of truth for prose, and the YAML block is what downstream skills and scripts parse.
+The four QA sections each carry their own structured block inside the metadata file. The block mirrors the tables in the paired markdown document — the markdown is the human-readable source of truth for prose, and the YAML block is what downstream skills and scripts parse. Write these blocks through `artifact.py set-block`, except for `rtm_rows` (`rtm-upsert`) and gate verdict fields (`gate-evaluate`).
 
 Common metadata fields (`artifact_id`, `phase`, `approval`, …) are covered in [meta-schema.md](meta-schema.md).
 
@@ -215,6 +215,6 @@ quality_gate:
 | `quality_report.nfr_results` | yes when NFR plan is non-empty | Target vs actual for every NFR scenario |
 | `quality_report.residual_risks` | yes | Every accepted Should/Could/Won't gap, plus resolved Must escalations |
 | `quality_report.recommendations` | optional | Free-form, prioritised |
-| `quality_gate.criteria` | yes | Set during the strategy stage |
-| `quality_gate.actuals` | yes | Set during the report stage by the main agent applying `write-quality-report-actuals` |
+| `quality_gate.criteria` | yes | Set during the strategy/handoff path via `artifact.py set-block` |
+| `quality_gate.actuals` | yes | Set during the report stage by the main agent applying `write-quality-report-actuals` via `artifact.py set-block` |
 | `quality_gate.verdict` / `reasons` / `evaluated_at` | yes | Set **only** by `artifact.py gate-evaluate` |

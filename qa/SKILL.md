@@ -98,7 +98,7 @@ QA splits stages between the **main agent** (which talks to the user and writes 
 
 **Sequencing rule (mandatory):** the stages have a hard order — `strategy → generate → review → generate → review → … → report` — because each consumes the previous one's output. Never spawn these subagents in parallel, and never start one before its predecessor has finished writing to disk.
 
-**File-based handoff (light and heavy both):** `review` and `report` each write their output to a **report file** under `./artifacts/qa/.reports/` and return only `report_id + verdict + summary` in their message. For `review` the body is a structured RTM-gap list (one item per uncovered/partial requirement, with classification and a suggested generation directive). For `report` the body is the Quality Report draft (coverage tables, NFR actuals, gate evaluation result) plus any `proposed_meta_ops` (e.g. `rtm-upsert` calls to refresh status, `gate-evaluate` to transition approval). The main agent reads the report via `artifact.py report show`, validates it, applies any meta ops, and acts. Subagents **never** edit `*.meta.yaml` directly and **never** call `artifact.py init / set-phase / approve / link / rtm-upsert / gate-evaluate` themselves — they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and per-stage `classification` values.
+**File-based handoff (light and heavy both):** `review` and `report` each write their output to a **report file** under `./artifacts/qa/.reports/` and return only `report_id + verdict + summary` in their message. For `review` the body is a structured RTM-gap list (one item per uncovered/partial requirement, with `gap_type` and a suggested generation directive). For `report` the body is the Quality Report draft (coverage tables, NFR actuals, gate evaluation result) plus any `proposed_meta_ops` (e.g. `rtm-upsert`, `write-quality-report-actuals`, `gate-evaluate`). The main agent reads the report via `artifact.py report show`, validates it, applies any meta ops, and acts. Subagents **never** edit `*.meta.yaml` directly and **never** call `artifact.py init / set-block / set-phase / approve / link / rtm-upsert / gate-evaluate` themselves — they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and per-stage fields.
 
 Before spawning any subagent, the main agent allocates the report path:
 
@@ -128,6 +128,7 @@ Load [references/workflow/strategy.md](references/workflow/strategy.md).
 2. Fill in the Markdown body by editing only the `.md` file — never touch `.meta.yaml` with Edit/Write.
 3. Update structured state through the script:
    ```
+   python ${SKILL_DIR}/scripts/artifact.py set-block    <id> --field test_strategy --from /tmp/test-strategy.yaml
    python ${SKILL_DIR}/scripts/artifact.py set-progress <id> --completed N --total M
    python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream RE-SPEC-001
    python ${SKILL_DIR}/scripts/artifact.py link         <id> --upstream IMPL-MAP-001
@@ -143,7 +144,7 @@ Load [references/workflow/generate.md](references/workflow/generate.md).
 - For every in-scope FR / NFR, convert each `acceptance_criteria` into one or more Given-When-Then test cases. Pick a `technique` deliberately: `boundary_value`, `equivalence_partition`, `decision_table`, `state_transition`, `property_based`, or `example_based` for everything else.
 - Map each case to the right test type: `unit` (Impl module-level), `integration` (Arch interface boundaries), `e2e` (Arch sequence diagrams), `contract` (microservice or external API boundary), `nfr` (RE `metric` target).
 - Write the actual test files under the project tree using the testing framework recorded in `IMPL-CODE-*.external_dependencies` (or `ARCH-TECH-*` if Impl has not yet pinned one). Place tests where `IMPL-GUIDE-*.conventions.tests` says they belong; fall back to the stack idiom only when no convention is detectable.
-- Record every test case in the Test Suite metadata block with `re_refs`, `arch_refs`, `impl_refs`, and the `acceptance_criteria_ref` of the criterion it verifies. After each suite, immediately call `rtm-upsert` to update the RTM row for the requirements that just gained coverage.
+- Record every test case in the Test Suite metadata block with `re_refs`, `arch_refs`, `impl_refs`, and the `acceptance_criteria_ref` of the criterion it verifies by writing `test_suite` through `artifact.py set-block`. After each suite, immediately call `rtm-upsert` to update the RTM row for the requirements that just gained coverage.
 
 Stage 2 sequence:
 
@@ -151,19 +152,23 @@ Stage 2 sequence:
 2. `artifact.py init --section rtm` (only once — the RTM is project-wide).
 3. Edit the suite `.md` files via Edit. Never Edit `.meta.yaml`.
 4. Write the actual test files with Write/Edit. They are not tracked by `artifact.py`.
-5. After each suite is filled in, refresh the RTM:
+5. Write the structured suite payload through the script:
+   ```
+   python ${SKILL_DIR}/scripts/artifact.py set-block <suite-id> --field test_suite --from /tmp/test-suite.yaml
+   ```
+6. After each suite is filled in, refresh the RTM:
    ```
    python ${SKILL_DIR}/scripts/artifact.py rtm-upsert \
        --re-id FR-001 --test-refs QA-SUITE-001:TS-001-C01 \
        --arch-refs ARCH-COMP-001 --impl-refs IMPL-MAP-001 \
        --status covered
    ```
-6. Add traceability:
+7. Add traceability:
    ```
    python ${SKILL_DIR}/scripts/artifact.py link <suite-id> --upstream IMPL-MAP-001
    python ${SKILL_DIR}/scripts/artifact.py link <suite-id> --upstream RE-SPEC-001
    ```
-7. When the suite draft is complete: `artifact.py set-phase <id> in_review`.
+8. When the suite draft is complete: `artifact.py set-phase <id> in_review`.
 
 **Escalation condition**: escalate when an Arch decision implies a test type the project cannot run (e.g. a microservice contract test without any contract framework, or an NFR metric that requires load infrastructure that does not exist) and you cannot fall back to a smaller equivalent.
 
@@ -202,17 +207,18 @@ Load [references/workflow/report.md](references/workflow/report.md).
   ```
   - Verdict `pass` → `approval.state` transitions to `approved`, `phase` to `approved`.
   - Verdict `fail` → `approval.state` transitions to `rejected`.
-  - Verdict `escalated` (an unresolved Must gap is still present) → `approval.state` transitions to `changes_requested` and the report body must list which Must requirements are blocking.
+  - Verdict `escalated` (an unresolved Must gap is still present) → `approval.state` transitions to `escalated` and the report body must list which Must requirements are blocking.
 
 When the Quality Report is `approved`, point the user at the next skill (`deployment`, `operation`, `management`, `security`) and stop.
 
 ## Script contract (mandatory)
 
-**Never edit `*.meta.yaml` files directly.** All state changes — phase, progress, approval, traceability, RTM rows, quality-gate evaluation — must go through `scripts/artifact.py`. The script enforces:
+**Never edit `*.meta.yaml` files directly.** All state changes — phase, progress, section payloads, approval, traceability, RTM rows, quality-gate evaluation — must go through `scripts/artifact.py`. The script enforces:
 
 - Schema validation (rejects unknown phases, missing fields, unknown coverage statuses).
 - `updated_at` auto-refresh.
 - Legal phase transitions only (`draft → in_review → revising → in_review → approved → superseded`). You cannot jump straight from `draft` to `approved`.
+- Section-payload writes through `set-block` (`test_strategy`, `test_suite`, `quality_report`, `quality_gate.criteria`, `quality_gate.actuals`) so the validator can reject malformed structured metadata before it lands on disk.
 - Bidirectional `upstream_refs` / `downstream_refs` integrity (so a link from `QA-SUITE-001` to `IMPL-MAP-001` shows up on both sides when both live under the same artifacts directory).
 - An `approval.history` audit trail with timestamps.
 - RTM rows are first-class metadata: `rtm-upsert` is the only way to add or change a row, and `rtm-gap-report` is the only blessed source of the gap roll-up that strategy / report consume.
@@ -223,6 +229,7 @@ Available subcommands:
 | Command | Purpose |
 |---------|---------|
 | `artifact.py init --section <name>` | Create a metadata + markdown pair from templates. `<name>` is one of `test-strategy`, `test-suite`, `rtm`, `quality-report`. Returns the new `artifact_id`. |
+| `artifact.py set-block <id> --field <field> (--from <path> \| --value <yaml-or-json>)` | Replace a structured metadata block (`test_strategy`, `test_suite`, `quality_report`, `quality_gate.criteria`, or `quality_gate.actuals`) through the script. |
 | `artifact.py set-phase <id> <phase>` | Transition phase. |
 | `artifact.py set-progress <id> --completed N --total M` | Update progress. |
 | `artifact.py approve <id> --approver <name> [--state <s>] [--notes ...]` | Transition approval state. Refuses Quality Report ids — use `gate-evaluate`. |

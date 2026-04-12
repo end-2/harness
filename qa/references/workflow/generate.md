@@ -55,7 +55,10 @@ For each suite:
 
 1. Edit the `.md` file via Edit (never `.meta.yaml`).
 2. Write the actual test files with Write/Edit. They are not tracked by `artifact.py`.
-3. Record every case in the `test_suite[]` block via the metadata template (the next iteration of `init` and `set-progress` will not touch this list — you fill it once during `generate` by editing the markdown view, and the metadata block mirrors it).
+3. Write the structured `test_suite[]` payload via `artifact.py set-block` (the next iteration of `init` and `set-progress` will not touch this list, so generation owns the full replacement payload):
+   ```
+   python ${SKILL_DIR}/scripts/artifact.py set-block <suite-id> --field test_suite --from /tmp/test-suite.yaml
+   ```
 4. Refresh the RTM as soon as a requirement gains coverage:
    ```
    python ${SKILL_DIR}/scripts/artifact.py rtm-upsert \

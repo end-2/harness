@@ -80,15 +80,52 @@ REQUIRED_META_FIELDS = (
     "upstream_refs",
     "downstream_refs",
     "document_path",
+    "created_at",
     "updated_at",
 )
 
 COVERAGE_STATUSES = ("covered", "partial", "uncovered")
 
+STRATEGY_MODES = ("light", "heavy")
+TEST_TYPES = ("unit", "integration", "e2e", "contract", "nfr")
+TEST_TECHNIQUES = (
+    "boundary_value",
+    "equivalence_partition",
+    "decision_table",
+    "state_transition",
+    "property_based",
+    "example_based",
+)
+
+SETTABLE_FIELDS: dict[str, str] = {
+    "test_strategy": "test-strategy",
+    "test_suite": "test-suite",
+    "quality_report": "quality-report",
+    "quality_gate.criteria": "quality-report",
+    "quality_gate.actuals": "quality-report",
+}
+
 # MoSCoW priorities recognised in RTM rows. The script does not enforce a
 # value here — it just bins by whatever priority a row carries — but the
 # canonical set is documented for reference.
 MOSCOW_PRIORITIES = ("must", "should", "could", "wont")
+
+REVIEW_GAP_TYPES = (
+    "missing_test",
+    "partial_criteria",
+    "weak_assertion",
+    "missing_nfr_scenario",
+    "traceability_break",
+    "flaky_pattern",
+)
+REPORT_KIND_BY_STAGE = {
+    "review": "review",
+    "report": "report",
+}
+REPORT_ALLOWED_OPS_BY_STAGE = {
+    "review": {"rtm-upsert"},
+    "report": {"write-quality-report-actuals", "gate-evaluate"},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +198,67 @@ def find_meta_by_id(artifact_id: str) -> Path:
 
 def all_meta_files() -> list[Path]:
     return sorted(artifacts_dir().glob("*.meta.yaml"))
+
+
+def _is_non_empty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_string_list(value: Any, *, min_items: int = 0) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) >= min_items
+        and all(_is_non_empty_string(item) for item in value)
+    )
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _load_structured_value(
+    *,
+    from_path: str | None,
+    raw_value: str | None,
+) -> Any:
+    if bool(from_path) == bool(raw_value):
+        raise ValueError("provide exactly one of --from or --value")
+    if from_path:
+        text = Path(from_path).read_text(encoding="utf-8")
+    else:
+        text = raw_value or ""
+    return yaml.safe_load(text)
+
+
+def _extract_field_payload(payload: Any, field: str) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+    current: Any = payload
+    found = True
+    for part in field.split("."):
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            found = False
+            break
+    if found:
+        return current
+    leaf = field.rsplit(".", 1)[-1]
+    if leaf in payload:
+        return payload[leaf]
+    return payload
+
+
+def _set_nested_value(root: dict[str, Any], field: str, value: Any) -> None:
+    parts = field.split(".")
+    current = root
+    for part in parts[:-1]:
+        next_value = current.get(part)
+        if not isinstance(next_value, dict):
+            next_value = {}
+            current[part] = next_value
+        current = next_value
+    current[parts[-1]] = value
 
 
 def find_rtm_meta() -> Path | None:
@@ -465,6 +563,314 @@ def cmd_list(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_set_block(args: argparse.Namespace) -> int:
+    expected_section = SETTABLE_FIELDS[args.field]
+    meta_path = find_meta_by_id(args.artifact_id)
+    data = load_meta(meta_path)
+    if data.get("section") != expected_section:
+        sys.stderr.write(
+            f"error: field {args.field!r} belongs to section "
+            f"{expected_section!r}, but {args.artifact_id} is "
+            f"{data.get('section')!r}\n"
+        )
+        return 2
+
+    payload = _load_structured_value(
+        from_path=args.from_path,
+        raw_value=args.value,
+    )
+    payload = _extract_field_payload(payload, args.field)
+    _set_nested_value(data, args.field, payload)
+
+    errors = _validate_meta(data, meta_path)
+    if errors:
+        for error in errors:
+            sys.stderr.write(f"error: {error}\n")
+        return 2
+
+    save_meta(meta_path, data)
+    print(
+        json.dumps(
+            {
+                "artifact_id": args.artifact_id,
+                "field": args.field,
+                "meta_path": str(meta_path),
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _validate_progress(progress: Any, path: Path) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(progress, dict):
+        return [f"{path.name}: progress must be a mapping"]
+
+    completed = progress.get("section_completed")
+    total = progress.get("section_total")
+    percent = progress.get("percent")
+    if not isinstance(completed, int) or not isinstance(total, int) or not isinstance(
+        percent, int
+    ):
+        return [
+            f"{path.name}: progress must contain integer section_completed, "
+            "section_total, and percent"
+        ]
+    if completed < 0 or total < 0:
+        errors.append(
+            f"{path.name}: progress counts must be non-negative "
+            f"(got {completed}/{total})"
+        )
+        return errors
+    if total == 0:
+        if completed != 0 or percent != 0:
+            errors.append(
+                f"{path.name}: progress with section_total 0 must be 0/0 (0%)"
+            )
+        return errors
+    if completed > total:
+        errors.append(
+            f"{path.name}: progress section_completed {completed} exceeds "
+            f"section_total {total}"
+        )
+    expected_percent = int(round(100 * completed / total))
+    if percent != expected_percent:
+        errors.append(
+            f"{path.name}: progress percent {percent} does not match "
+            f"{completed}/{total} ({expected_percent})"
+        )
+    return errors
+
+
+def _validate_strategy_block(data: dict[str, Any], path: Path) -> list[str]:
+    block = data.get("test_strategy")
+    if not isinstance(block, dict):
+        return [f"{path.name}: missing test_strategy block"]
+
+    errors: list[str] = []
+    mode = block.get("mode")
+    if mode is not None and mode not in STRATEGY_MODES:
+        errors.append(f"{path.name}: test_strategy.mode invalid: {mode!r}")
+
+    scope = block.get("scope")
+    if not isinstance(scope, dict):
+        errors.append(f"{path.name}: test_strategy.scope must be a mapping")
+    else:
+        for key in ("in", "out"):
+            if key not in scope:
+                errors.append(f"{path.name}: test_strategy.scope missing {key!r}")
+            elif not isinstance(scope[key], list):
+                errors.append(
+                    f"{path.name}: test_strategy.scope.{key} must be a list"
+                )
+
+    for key in (
+        "pyramid",
+        "nfr_test_plan",
+        "environment_matrix",
+        "test_double_strategy",
+    ):
+        value = block.get(key)
+        if value is None:
+            errors.append(f"{path.name}: test_strategy missing {key!r}")
+        elif not isinstance(value, list):
+            errors.append(f"{path.name}: test_strategy.{key} must be a list")
+
+    criteria = block.get("quality_gate_criteria")
+    if not isinstance(criteria, dict):
+        errors.append(
+            f"{path.name}: test_strategy.quality_gate_criteria must be a mapping"
+        )
+    else:
+        for key in (
+            "code_coverage_min",
+            "requirements_coverage_must_min",
+            "max_failed_tests",
+            "nfr_metric_refs",
+        ):
+            if key not in criteria:
+                errors.append(
+                    f"{path.name}: test_strategy.quality_gate_criteria missing "
+                    f"{key!r}"
+                )
+        for key in ("code_coverage_min", "requirements_coverage_must_min"):
+            value = criteria.get(key)
+            if value is not None and not _is_number(value):
+                errors.append(
+                    f"{path.name}: test_strategy.quality_gate_criteria.{key} "
+                    "must be numeric or null"
+                )
+        max_failed = criteria.get("max_failed_tests")
+        if max_failed is not None and not isinstance(max_failed, int):
+            errors.append(
+                f"{path.name}: test_strategy.quality_gate_criteria."
+                "max_failed_tests must be an int"
+            )
+        nfr_refs = criteria.get("nfr_metric_refs")
+        if nfr_refs is not None and not _is_string_list(nfr_refs):
+            errors.append(
+                f"{path.name}: test_strategy.quality_gate_criteria."
+                "nfr_metric_refs must be a list of strings"
+            )
+    return errors
+
+
+def _validate_suite_block(data: dict[str, Any], path: Path) -> list[str]:
+    block = data.get("test_suite")
+    if not isinstance(block, list):
+        return [f"{path.name}: missing test_suite block"]
+
+    errors: list[str] = []
+    if data.get("phase") in ("in_review", "approved") and not block:
+        errors.append(
+            f"{path.name}: in_review test-suite artifacts must contain at least "
+            "one suite"
+        )
+
+    for index, suite in enumerate(block):
+        label = f"{path.name}: test_suite[{index}]"
+        if not isinstance(suite, dict):
+            errors.append(f"{label} must be a mapping")
+            continue
+        for key in (
+            "id",
+            "title",
+            "target_module",
+            "framework",
+        ):
+            value = suite.get(key)
+            if value is not None and not _is_non_empty_string(value):
+                errors.append(f"{label}.{key} must be a non-empty string")
+        suite_type = suite.get("type")
+        if suite_type is not None and suite_type not in TEST_TYPES:
+            errors.append(f"{label}.type invalid: {suite_type!r}")
+        for key in ("test_files", "re_refs", "arch_refs", "impl_refs"):
+            value = suite.get(key)
+            if value is not None and not _is_string_list(value, min_items=1):
+                errors.append(f"{label}.{key} must be a non-empty list of strings")
+        cases = suite.get("test_cases")
+        if cases is not None and not isinstance(cases, list):
+            errors.append(f"{label}.test_cases must be a list")
+            continue
+        if isinstance(cases, list):
+            for case_index, case in enumerate(cases):
+                case_label = f"{label}.test_cases[{case_index}]"
+                if not isinstance(case, dict):
+                    errors.append(f"{case_label} must be a mapping")
+                    continue
+                for key in (
+                    "case_id",
+                    "description",
+                    "acceptance_criteria_ref",
+                    "given",
+                    "when",
+                    "then",
+                ):
+                    value = case.get(key)
+                    if value is not None and not _is_non_empty_string(value):
+                        errors.append(f"{case_label}.{key} must be a non-empty string")
+                technique = case.get("technique")
+                if technique is not None and technique not in TEST_TECHNIQUES:
+                    errors.append(
+                        f"{case_label}.technique invalid: {technique!r}"
+                    )
+                test_node = case.get("test_node")
+                if test_node is not None and not _is_non_empty_string(test_node):
+                    errors.append(f"{case_label}.test_node must be a non-empty string")
+    return errors
+
+
+def _validate_rtm_block(data: dict[str, Any], path: Path) -> list[str]:
+    rows = data.get("rtm_rows")
+    if rows is None:
+        return [f"{path.name}: missing rtm_rows block"]
+    if not isinstance(rows, list):
+        return [f"{path.name}: rtm_rows must be a list"]
+
+    errors: list[str] = []
+    for index, row in enumerate(rows):
+        label = f"{path.name}: rtm_rows[{index}]"
+        if not isinstance(row, dict):
+            errors.append(f"{label} must be a mapping")
+            continue
+        if not _is_non_empty_string(row.get("re_id")):
+            errors.append(f"{label} missing re_id")
+        status = row.get("coverage_status")
+        if status not in COVERAGE_STATUSES:
+            errors.append(f"{label} coverage_status invalid: {status!r}")
+        test_refs = row.get("test_refs")
+        if status != "uncovered" and not _is_string_list(test_refs, min_items=1):
+            errors.append(
+                f"{label} test_refs must be a non-empty list when status is "
+                f"{status!r}"
+            )
+        gap = row.get("gap_description")
+        if status in ("partial", "uncovered") and not _is_non_empty_string(gap):
+            errors.append(
+                f"{label} gap_description must be a non-empty string when status "
+                f"is {status!r}"
+            )
+    return errors
+
+
+def _validate_quality_report_block(data: dict[str, Any], path: Path) -> list[str]:
+    report = data.get("quality_report")
+    gate = data.get("quality_gate")
+    errors: list[str] = []
+
+    if not isinstance(report, dict):
+        errors.append(f"{path.name}: missing quality_report block")
+    else:
+        code_coverage = report.get("code_coverage")
+        if code_coverage is None:
+            errors.append(f"{path.name}: quality_report missing 'code_coverage'")
+        elif not isinstance(code_coverage, dict):
+            errors.append(f"{path.name}: quality_report.code_coverage must be a mapping")
+        requirements_coverage = report.get("requirements_coverage")
+        if requirements_coverage is None:
+            errors.append(
+                f"{path.name}: quality_report missing 'requirements_coverage'"
+            )
+        elif not isinstance(requirements_coverage, dict):
+            errors.append(
+                f"{path.name}: quality_report.requirements_coverage must be a mapping"
+            )
+        for key in ("nfr_results", "residual_risks", "recommendations"):
+            value = report.get(key)
+            if value is None:
+                errors.append(f"{path.name}: quality_report missing {key!r}")
+            elif not isinstance(value, list):
+                errors.append(f"{path.name}: quality_report.{key} must be a list")
+
+    if not isinstance(gate, dict):
+        errors.append(f"{path.name}: missing quality_gate block")
+    else:
+        criteria = gate.get("criteria")
+        actuals = gate.get("actuals")
+        if not isinstance(criteria, dict):
+            errors.append(f"{path.name}: quality_gate.criteria must be a mapping")
+        else:
+            for key in (
+                "code_coverage_min",
+                "requirements_coverage_must_min",
+                "max_failed_tests",
+            ):
+                if key not in criteria:
+                    errors.append(
+                        f"{path.name}: quality_gate.criteria missing {key!r}"
+                    )
+        if not isinstance(actuals, dict):
+            errors.append(f"{path.name}: quality_gate.actuals must be a mapping")
+        else:
+            nfr_results = actuals.get("nfr_results")
+            if nfr_results is not None and not isinstance(nfr_results, list):
+                errors.append(
+                    f"{path.name}: quality_gate.actuals.nfr_results must be a list"
+                )
+    return errors
+
+
 def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
     errors: list[str] = []
     for field in REQUIRED_META_FIELDS:
@@ -480,27 +886,20 @@ def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
     state = approval.get("state")
     if state and state not in APPROVAL_STATES:
         errors.append(f"{path.name}: unknown approval state {state!r}")
+    errors.extend(_validate_progress(data.get("progress"), path))
     doc_rel = data.get("document_path")
     if doc_rel:
         doc_path = path.parent / doc_rel
         if not doc_path.exists():
             errors.append(f"{path.name}: document_path missing: {doc_rel}")
-    if section == "rtm":
-        rows = data.get("rtm_rows")
-        if rows is not None and not isinstance(rows, list):
-            errors.append(f"{path.name}: rtm_rows must be a list")
-        if isinstance(rows, list):
-            for i, r in enumerate(rows):
-                if not isinstance(r, dict):
-                    errors.append(f"{path.name}: rtm_rows[{i}] must be a mapping")
-                    continue
-                if "re_id" not in r:
-                    errors.append(f"{path.name}: rtm_rows[{i}] missing re_id")
-                if r.get("coverage_status") not in COVERAGE_STATUSES:
-                    errors.append(
-                        f"{path.name}: rtm_rows[{i}] coverage_status invalid: "
-                        f"{r.get('coverage_status')!r}"
-                    )
+    if section == "test-strategy":
+        errors.extend(_validate_strategy_block(data, path))
+    elif section == "test-suite":
+        errors.extend(_validate_suite_block(data, path))
+    elif section == "rtm":
+        errors.extend(_validate_rtm_block(data, path))
+    elif section == "quality-report":
+        errors.extend(_validate_quality_report_block(data, path))
     return errors
 
 
@@ -1075,6 +1474,92 @@ def cmd_report_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _validate_review_item(item: dict[str, Any], index: int, errors: list[str]) -> None:
+    label = f"items[{index}]"
+    if not _is_non_empty_string(item.get("re_id")):
+        errors.append(f"{label} missing re_id")
+    if not _is_non_empty_string(item.get("priority")):
+        errors.append(f"{label} missing priority")
+    gap_type = item.get("gap_type")
+    if not _is_non_empty_string(gap_type):
+        errors.append(f"{label} missing gap_type")
+    elif gap_type not in REVIEW_GAP_TYPES:
+        errors.append(f"{label} has invalid gap_type {gap_type!r}")
+    for key in ("description", "suggested_fix"):
+        if not _is_non_empty_string(item.get(key)):
+            errors.append(f"{label} missing {key}")
+    if not isinstance(item.get("auto_fixable"), bool):
+        errors.append(f"{label} auto_fixable must be a boolean")
+    related = item.get("related_test_refs")
+    if related is not None and not _is_string_list(related):
+        errors.append(f"{label} related_test_refs must be a list of strings")
+
+
+def _validate_report_item(item: dict[str, Any], index: int, errors: list[str]) -> None:
+    label = f"items[{index}]"
+    kind = item.get("kind")
+    if kind is not None and not _is_non_empty_string(kind):
+        errors.append(f"{label} kind must be a non-empty string")
+    if kind == "failed_test":
+        if not _is_non_empty_string(item.get("test_node")):
+            errors.append(f"{label} failed_test requires test_node")
+        if not _is_non_empty_string(item.get("failure")):
+            errors.append(f"{label} failed_test requires failure")
+
+
+def _validate_report_meta_op(
+    op: dict[str, Any],
+    *,
+    stage: str | None,
+    index: int,
+    errors: list[str],
+) -> None:
+    label = f"proposed_meta_ops[{index}]"
+    name = op.get("op")
+    if not _is_non_empty_string(name):
+        errors.append(f"{label} missing op")
+        return
+
+    allowed = REPORT_ALLOWED_OPS_BY_STAGE.get(stage)
+    if allowed is not None and name not in allowed:
+        errors.append(
+            f"{label} op {name!r} is not allowed for stage {stage!r}"
+        )
+        return
+
+    if not _is_non_empty_string(op.get("artifact_id")) and name != "rtm-upsert":
+        errors.append(f"{label} {name} requires artifact_id")
+
+    if name == "rtm-upsert":
+        if not _is_non_empty_string(op.get("re_id")):
+            errors.append(f"{label} rtm-upsert requires re_id")
+        status = op.get("status")
+        if status not in COVERAGE_STATUSES:
+            errors.append(f"{label} rtm-upsert requires valid status")
+        for key in ("arch_refs", "impl_refs", "test_refs"):
+            value = op.get(key)
+            if value is not None and not _is_string_list(value):
+                errors.append(f"{label} rtm-upsert {key} must be a list of strings")
+    elif name == "write-quality-report-actuals":
+        if not isinstance(op.get("quality_report"), dict):
+            errors.append(
+                f"{label} write-quality-report-actuals requires quality_report"
+            )
+        quality_gate = op.get("quality_gate")
+        if not isinstance(quality_gate, dict):
+            errors.append(
+                f"{label} write-quality-report-actuals requires quality_gate"
+            )
+        elif not isinstance(quality_gate.get("actuals"), dict):
+            errors.append(
+                f"{label} write-quality-report-actuals requires "
+                "quality_gate.actuals"
+            )
+    elif name == "gate-evaluate":
+        # artifact_id presence already checked above.
+        pass
+
+
 def cmd_report_validate(args: argparse.Namespace) -> int:
     arg = args.report
     candidate = Path(arg)
@@ -1091,19 +1576,62 @@ def cmd_report_validate(args: argparse.Namespace) -> int:
         errors.append(f"unknown kind: {fm['kind']!r}")
     if "verdict" in fm and fm["verdict"] not in REPORT_VERDICTS:
         errors.append(f"unknown verdict: {fm['verdict']!r}")
+    if fm.get("verdict") == "n/a":
+        errors.append("verdict 'n/a' is only allowed in the initial stub")
     if "skill" in fm and fm["skill"] != SKILL_NAME:
         errors.append(
             f"skill mismatch: report says {fm['skill']!r}, "
             f"this script is for {SKILL_NAME!r}"
         )
-    if "target_refs" in fm and not isinstance(fm["target_refs"], list):
+    stage = fm.get("stage")
+    expected_kind = REPORT_KIND_BY_STAGE.get(stage)
+    if expected_kind and fm.get("kind") != expected_kind:
+        errors.append(
+            f"kind/stage mismatch: stage {stage!r} expects kind "
+            f"{expected_kind!r}, got {fm.get('kind')!r}"
+        )
+    target_refs = fm.get("target_refs")
+    if target_refs is not None and not isinstance(target_refs, list):
         errors.append("target_refs must be a list")
-    if "proposed_meta_ops" in fm and not isinstance(
-        fm["proposed_meta_ops"], list
-    ):
+        target_refs = []
+    elif isinstance(target_refs, list):
+        for index, ref in enumerate(target_refs):
+            if not _is_non_empty_string(ref):
+                errors.append(f"target_refs[{index}] must be a non-empty string")
+
+    proposed_meta_ops = fm.get("proposed_meta_ops")
+    if proposed_meta_ops is not None and not isinstance(proposed_meta_ops, list):
         errors.append("proposed_meta_ops must be a list")
-    if "items" in fm and not isinstance(fm["items"], list):
+        proposed_meta_ops = []
+
+    items = fm.get("items")
+    if items is not None and not isinstance(items, list):
         errors.append("items must be a list")
+        items = []
+    elif stage in {"review"} and fm.get("verdict") in {"at_risk", "fail", "escalated"}:
+        if isinstance(items, list) and not items:
+            errors.append(
+                f"{stage} reports with verdict {fm.get('verdict')!r} must include "
+                "at least one item"
+            )
+
+    if isinstance(items, list):
+        for index, item in enumerate(items):
+            if not isinstance(item, dict):
+                errors.append(f"items[{index}] must be a mapping")
+                continue
+            if stage == "review":
+                _validate_review_item(item, index, errors)
+            elif stage == "report":
+                _validate_report_item(item, index, errors)
+
+    if isinstance(proposed_meta_ops, list):
+        for index, op in enumerate(proposed_meta_ops):
+            if not isinstance(op, dict):
+                errors.append(f"proposed_meta_ops[{index}] must be a mapping")
+                continue
+            _validate_report_meta_op(op, stage=stage, index=index, errors=errors)
+
     if not (fm.get("summary") or "").strip():
         errors.append("summary is empty (subagent must write a one-line summary)")
     stripped_body = "\n".join(
@@ -1167,6 +1695,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("list", help="list all artifacts in the project")
     sp.set_defaults(func=cmd_list)
+
+    sp = sub.add_parser(
+        "set-block",
+        help="replace a script-managed structured metadata block from YAML/JSON",
+    )
+    sp.add_argument("artifact_id")
+    sp.add_argument("--field", required=True, choices=sorted(SETTABLE_FIELDS))
+    sp.add_argument("--from", dest="from_path", default=None)
+    sp.add_argument("--value", default=None)
+    sp.set_defaults(func=cmd_set_block)
 
     sp = sub.add_parser("validate", help="validate schema and traceability")
     sp.add_argument("artifact_id", nargs="?", default=None)

@@ -71,7 +71,7 @@ Default values, adjusted only with explicit reason:
 | `max_failed_tests` | 0 | non-negotiable |
 | `nfr_results` | every NFR row must `pass: true` | per `RE-QA-*.metric` |
 
-These values populate `quality_gate.criteria` in the Quality Report metadata when Stage 4 runs `gate-evaluate`.
+These values later populate `quality_gate.criteria` in the Quality Report metadata via `artifact.py set-block` before Stage 4 runs `gate-evaluate`.
 
 ## Output — the Test Strategy section
 
@@ -80,6 +80,7 @@ Create the artifact pair via `artifact.py init`, edit the markdown body, link up
 ```
 python ${SKILL_DIR}/scripts/artifact.py init --section test-strategy
 # edit QA-STRATEGY-001.md only — never *.meta.yaml
+python ${SKILL_DIR}/scripts/artifact.py set-block QA-STRATEGY-001 --field test_strategy --from /tmp/test-strategy.yaml
 python ${SKILL_DIR}/scripts/artifact.py link QA-STRATEGY-001 --upstream RE-SPEC-001
 python ${SKILL_DIR}/scripts/artifact.py link QA-STRATEGY-001 --upstream RE-QA-001
 python ${SKILL_DIR}/scripts/artifact.py link QA-STRATEGY-001 --upstream ARCH-COMP-001

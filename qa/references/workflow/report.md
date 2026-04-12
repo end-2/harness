@@ -64,7 +64,7 @@ Run the test suite, collect coverage and NFR actuals, fill the Quality Report se
 1. Read the report via `artifact.py report show <report_id>`.
 2. Validate it via `artifact.py report validate <report_id>`.
 3. Walk the `proposed_meta_ops` and apply them in order:
-   - For `write-quality-report-actuals`, the main agent edits the `*.meta.yaml`'s `quality_gate.actuals` and `quality_report` blocks. **Exception**: this is the one place where direct edit of metadata is permitted, because the subagent cannot do it, and there is no `artifact.py` subcommand for setting actuals individually. Keep the edit minimal — only the keys named in the op.
+   - For `write-quality-report-actuals`, the main agent applies the payload through `artifact.py set-block`, once for `quality_report` and once for `quality_gate.actuals`. Keep the payload minimal — only the keys named in the op.
    - For `gate-evaluate`, run:
      ```
      python ${SKILL_DIR}/scripts/artifact.py gate-evaluate QA-REPORT-001

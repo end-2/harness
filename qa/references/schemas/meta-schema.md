@@ -2,7 +2,7 @@
 
 Every QA section metadata file (`QA-*.meta.yaml`) carries the same top-level fields, regardless of which section it represents. This document is the authoritative reference for those common fields. Section-specific fields live in [section-schemas.md](section-schemas.md).
 
-All metadata is managed by `scripts/artifact.py`. **Never edit `*.meta.yaml` by hand.** The single exception is the Stage 4 `write-quality-report-actuals` meta op, where the main agent edits the Quality Report's `quality_gate.actuals` and `quality_report` blocks directly because there is no script subcommand for setting individual keys.
+All metadata is managed by `scripts/artifact.py`. **Never edit `*.meta.yaml` by hand.** Structured section payloads are written through `artifact.py set-block`; RTM rows go through `rtm-upsert`; gate verdicts go through `gate-evaluate`.
 
 ## Top-level fields
 
@@ -96,8 +96,8 @@ The `rtm` section adds one structured field, `rtm_rows[]`. It is also under scri
 
 The `quality-report` section adds two structured fields, `quality_report` (presentation data) and `quality_gate` (criteria + actuals + verdict).
 
-- `quality_gate.criteria` is set during the `strategy` stage as part of the Test Strategy hand-off (the values come from `QA-STRATEGY-*.test_strategy.quality_gate_criteria`).
-- `quality_gate.actuals` is set during the `report` stage by the main agent applying the `write-quality-report-actuals` meta op.
+- `quality_gate.criteria` is set during the `strategy`/handoff path by writing `quality_gate.criteria` through `artifact.py set-block` (the values come from `QA-STRATEGY-*.test_strategy.quality_gate_criteria`).
+- `quality_gate.actuals` is set during the `report` stage by the main agent applying the `write-quality-report-actuals` meta op through `artifact.py set-block`.
 - `quality_gate.verdict`, `quality_gate.reasons`, and `quality_gate.evaluated_at` are set **only** by `artifact.py gate-evaluate`. They must not be edited by hand.
 
 ## Validation

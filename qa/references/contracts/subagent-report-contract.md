@@ -125,7 +125,7 @@ proposed_meta_ops:
     artifact_id: QA-REPORT-001
 ```
 
-The `write-quality-report-actuals` op is the **only** place where the main agent edits a `*.meta.yaml` directly — there is no `artifact.py` subcommand for setting individual quality-report keys. Keep the edit minimal: only the keys named in the op.
+The main agent applies `write-quality-report-actuals` by translating it into `artifact.py set-block` calls for `quality_report` and `quality_gate.actuals`. Keep the payload minimal: only the keys named in the op.
 
 ## Validation
 
