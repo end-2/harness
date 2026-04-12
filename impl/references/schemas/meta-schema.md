@@ -28,7 +28,8 @@ progress:
   percent: 60
 ```
 
-- `section_total > 0` required when set.
+- Draft artifacts may start at `0/0/0` before the section scope is known.
+- Once an artifact is `in_review`, `revising`, or `approved`, `section_total > 0` is required.
 - `0 <= section_completed <= section_total`.
 - `percent` is derived from the two counts; the script computes it and rejects incoherent values.
 
@@ -76,16 +77,17 @@ superseded → (terminal)
 
 - `upstream_refs` and `downstream_refs` are always populated through `artifact.py link`. The script maintains **bidirectional integrity**: linking A → B automatically adds the reciprocal B → A when both live under the same artifacts directory.
 - Cross-skill refs (e.g. linking `IMPL-MAP-001` to `ARCH-COMP-001` or to `RE-QA-001`) are **allowed** and expected. The reciprocal on the other side is best-effort — it only updates if the other artifact file is locally present.
-- `validate` checks that all locally-resolvable refs are reciprocal, and flags any orphan ref as a warning.
+- `validate` checks that all locally-resolvable refs are reciprocal, and reports any orphan ref as an error.
 
 ## Validation
 
 Run `python ${SKILL_DIR}/scripts/artifact.py validate` to check:
 
-1. Every required field is present.
-2. Enums (`phase`, `section`, `approval.state`) hold legal values.
+1. Every required field is present, including `created_at` / `updated_at`.
+2. Enums (`phase`, `section`, `approval.state`) hold legal values and match each other.
 3. `document_path` resolves to an existing file.
-4. Traceability is reciprocal for locally-resolvable refs.
-5. `progress` fields are coherent.
+4. Section-specific payload blocks (`implementation_map`, `code_structure`, `implementation_decisions`, `implementation_guide`) have the expected shape.
+5. Traceability is reciprocal for locally-resolvable refs.
+6. `progress` fields are coherent.
 
 A non-zero exit means at least one check failed; the output lists each violation with its artifact id.

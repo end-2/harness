@@ -1,10 +1,10 @@
 # Subagent → Main Handoff Contract (Impl)
 
-Subagents in Impl (`review`, `refactor`) do **not** return their findings in the message body. They write a **report file** under `${HARNESS_ARTIFACTS_DIR:-./artifacts/impl}/.reports/` and return only the file path plus a one-line summary. The main agent then reads, validates, and acts on the file.
+Subagents in Impl (`review`, `refactor`) do **not** return their findings in the message body. They write a **report file** under `${HARNESS_ARTIFACTS_DIR:-./artifacts/impl}/.reports/` and return only `report_id + verdict + summary`. The main agent then reads, validates, and acts on the file.
 
 This exists for three reasons:
 
-1. **Clean-context guarantee is real.** If a subagent returns a long report in its message, the return value is injected wholesale into the main agent's context — defeating the point of spawning a subagent in the first place. A path + one-line summary is O(1) in context size.
+1. **Clean-context guarantee is real.** If a subagent returns a long report in its message, the return value is injected wholesale into the main agent's context — defeating the point of spawning a subagent in the first place. A report id + short summary is O(1) in context size.
 2. **Deterministic parsing.** The report has a strict YAML frontmatter schema (below). The main agent parses the frontmatter programmatically via `artifact.py report show` instead of regexing free-form Markdown.
 3. **Audit trail.** Reports accumulate under `.reports/` and can be re-read later (during the next refactor loop, during a revise pass, or by a downstream skill like `qa` or `security`).
 
@@ -75,8 +75,14 @@ items:                                           # structured findings
 - `report_id`, `kind`, `skill`, `stage`, `created_at`, `target_refs`, `verdict`, `summary` are **required**.
 - `summary` must be non-empty. An empty summary fails `artifact.py report validate`.
 - `target_refs` is a list even when a single artifact is targeted.
-- `proposed_meta_ops` is a list of dicts; each has a `cmd` key matching one of `set-progress`, `set-phase`, `link`, `approve`. The main agent applies them by calling the corresponding `artifact.py` subcommand — **the subagent must never call `artifact.py` to change metadata directly.**
-- `items` is a list of structured findings. Additional optional fields per item: `location` (file:line or artifact ref), `arch_ref` (the Arch artifact the finding relates to). Allowed `classification` values depend on the stage:
+- `proposed_meta_ops` is a list of dicts. Allowed commands depend on the stage:
+  - `review`: `link` only
+  - `refactor`: `link`, `set-progress`
+  The main agent applies them by calling the corresponding `artifact.py` subcommand — **the subagent must never call `artifact.py` to change metadata directly.**
+- `items` is a list of structured findings.
+  - `review` items must include `id`, `severity`, `classification`, `location`, `message`, and `suggested_fix`. `arch_ref` is optional when no single Arch anchor applies.
+  - `refactor` items must include `id`, `classification`, and `message`. `location`, `suggested_fix`, and `arch_ref` are optional.
+  Allowed `classification` values depend on the stage:
   - `review`: `contract_violation`, `clean_code`, `security_baseline`, `traceability_gap`, `escalation`
   - `refactor`: `refactor_applied`, `idr_added`, `boundary_escalation`
 
@@ -145,12 +151,12 @@ When spawning a subagent stage, the main agent:
 2. Spawns the subagent, passing:
    - the allocated `path` (the subagent must write to this exact file),
    - the Impl section artifacts, the Arch artifacts, and the source tree root.
-3. When the subagent finishes, the subagent's **message body is only** the report id + the one-line summary. The main agent:
+3. When the subagent finishes, the subagent's **message body is only** the report id + verdict + one-line summary. The main agent:
    - Runs `artifact.py report validate <report_id>` — if it fails, the subagent's work is rejected and re-run.
    - Runs `artifact.py report show <report_id>` to read the full report.
    - For `review`: classifies findings, escalates contract violations to the user, feeds auto-fixable items to `refactor`.
    - For `refactor`: applies the patches via `Edit`/`Write`, applies any `proposed_meta_ops` (like updated Implementation Map progress), then re-enters `review`.
-4. Phase transitions (`set-phase`, `approve`) are **never** included in `proposed_meta_ops` without the user's explicit go-ahead — the main agent is the only component allowed to gate those.
+4. Phase transitions (`set-phase`, `approve`) are **never** included in `proposed_meta_ops`; the main agent is the only component allowed to gate those.
 
 ## Subagent protocol
 
