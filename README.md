@@ -31,6 +31,12 @@ Sub-agent ↔ Main 통신은 파일 기반, 직접 통신은 결과만 응답
 
 ## 설치
 
+로컬 `scripts/artifact.py` 계열 도구를 쓰려면 먼저 Python 의존성을 설치합니다:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
 필요한 영역의 스킬을 개별적으로 설치합니다:
 
 ```bash
