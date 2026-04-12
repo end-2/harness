@@ -66,8 +66,8 @@ items:                                           # structured findings
 - `report_id`, `kind`, `skill`, `stage`, `created_at`, `target_refs`, `verdict`, `summary` are **required**.
 - `summary` must be non-empty. An empty summary fails `artifact.py report validate`.
 - `target_refs` is a list even when a single artifact is targeted.
-- `proposed_meta_ops` is a list of dicts; each has a `cmd` key matching one of `set-progress`, `set-phase`, `link`, `approve`. The main agent applies them by calling the corresponding `artifact.py` subcommand — **the subagent must never call `artifact.py` to change metadata directly.**
-- `items` is a list of structured findings. Allowed `classification` values depend on the stage:
+- `proposed_meta_ops` is a list of dicts. In DevOps reports only `set-progress` and `link` are allowed; phase transitions and approvals remain main-agent-only. The main agent applies accepted ops by calling the corresponding `artifact.py` subcommand — **the subagent must never call `artifact.py` to change metadata directly.**
+- `items` is a list of structured findings and must contain at least one item. Allowed `classification` values depend on the stage:
   - `monitor`: `content_draft`, `slo_gap`, `strategy_mismatch`
   - `log`: `content_draft`, `compliance_gap`, `masking_gap`
   - `incident`: `content_draft`, `coverage_gap`, `escalation_gap`
@@ -97,9 +97,10 @@ When spawning a subagent stage, the main agent:
 3. When the subagent finishes, the subagent's **message body is only** the report id + the one-line summary. The main agent:
    - Runs `artifact.py report validate <report_id>` — if it fails, the subagent's work is rejected and re-run.
    - Runs `artifact.py report show <report_id>` to read the full report.
-   - For content-producing stages (`monitor`, `log`, `incident`): merges the report body content into the corresponding artifact `.md` file, applies any `proposed_meta_ops`.
+   - For content-producing stages (`monitor`, `log`, `incident`): merges the report body content into the corresponding artifact `.md` file, applies any accepted `proposed_meta_ops`.
+   - If `monitor` and `log` ran in parallel, reconciles both reports into one final Observability artifact before starting `incident`.
    - For `review`: classifies findings, routes `feedback_loop_gap` and `traceability_gap` items back to the responsible stage, escalates `escalation` items to the user.
-4. Phase transitions (`set-phase`, `approve`) are **never** included in `proposed_meta_ops` without the user's explicit go-ahead — the main agent is the only component allowed to gate those.
+4. Phase transitions (`set-phase`, `approve`) are **not** valid `proposed_meta_ops` in DevOps. The main agent is the only component allowed to move phases or approvals.
 
 ## Subagent protocol
 

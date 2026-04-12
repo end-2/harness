@@ -178,7 +178,7 @@ retention:
 
 ## Log-based metrics
 
-Logs feed back into monitoring (Stage 5) through log-based metrics. Define these to bridge logging and alerting:
+Logs feed back into monitoring (Stage 5) through log-based metrics. Define these to bridge logging and alerting. When `monitor` and `log` run in parallel, treat these metrics as supplemental inputs that the main agent reconciles into the final Observability artifact after both reports return:
 
 | Log pattern | Derived metric | Feeds into |
 |---|---|---|

@@ -62,6 +62,7 @@ REQUIRED_META_FIELDS = (
     "upstream_refs",
     "downstream_refs",
     "document_path",
+    "created_at",
     "updated_at",
 )
 
@@ -136,6 +137,10 @@ def find_meta_by_id(artifact_id: str) -> Path:
 
 def all_meta_files() -> list[Path]:
     return sorted(artifacts_dir().glob("*.meta.yaml"))
+
+
+def _is_non_empty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 # ---------------------------------------------------------------------------
@@ -398,7 +403,9 @@ def cmd_list(_args: argparse.Namespace) -> int:
                 d.get("artifact_id", "?"),
                 d.get("section", "?"),
                 d.get("phase", "?"),
-                (d.get("approval") or {}).get("state", "?"),
+                d.get("approval", {}).get("state", "?")
+                if isinstance(d.get("approval"), dict)
+                else "?",
             )
         )
     width = max(len(r[0]) for r in rows)
@@ -418,12 +425,49 @@ def _validate_meta(data: dict[str, Any], path: Path) -> list[str]:
     section = data.get("section")
     if section not in SECTIONS:
         errors.append(f"{path.name}: unknown section {section!r}")
-    approval = data.get("approval") or {}
+    approval = data.get("approval")
+    if not isinstance(approval, dict):
+        errors.append(f"{path.name}: approval must be a mapping")
+        approval = {}
     state = approval.get("state")
     if state and state not in APPROVAL_STATES:
         errors.append(f"{path.name}: unknown approval state {state!r}")
+    progress = data.get("progress")
+    if not isinstance(progress, dict):
+        errors.append(f"{path.name}: progress must be a mapping")
+    else:
+        completed = progress.get("section_completed")
+        total = progress.get("section_total")
+        percent = progress.get("percent")
+        if not isinstance(completed, int):
+            errors.append(f"{path.name}: progress.section_completed must be an int")
+        if not isinstance(total, int):
+            errors.append(f"{path.name}: progress.section_total must be an int")
+        if not isinstance(percent, int):
+            errors.append(f"{path.name}: progress.percent must be an int")
+        if isinstance(completed, int) and completed < 0:
+            errors.append(f"{path.name}: progress.section_completed must be >= 0")
+        if isinstance(total, int) and total < 0:
+            errors.append(f"{path.name}: progress.section_total must be >= 0")
+        if isinstance(completed, int) and isinstance(total, int):
+            if completed > total:
+                errors.append(
+                    f"{path.name}: progress.section_completed cannot exceed "
+                    "section_total"
+                )
+            expected = int(round(100 * completed / total)) if total > 0 else 0
+            if isinstance(percent, int) and percent != expected:
+                errors.append(
+                    f"{path.name}: progress.percent must be {expected}, got {percent}"
+                )
+    if not isinstance(data.get("upstream_refs"), list):
+        errors.append(f"{path.name}: upstream_refs must be a list")
+    if not isinstance(data.get("downstream_refs"), list):
+        errors.append(f"{path.name}: downstream_refs must be a list")
     doc_rel = data.get("document_path")
-    if doc_rel:
+    if doc_rel and not isinstance(doc_rel, str):
+        errors.append(f"{path.name}: document_path must be a string")
+    elif doc_rel:
         doc_path = path.parent / doc_rel
         if not doc_path.exists():
             errors.append(f"{path.name}: document_path missing: {doc_rel}")
@@ -452,7 +496,14 @@ def _validate_traceability(all_data: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    files = all_meta_files()
+    if args.artifact_id:
+        try:
+            files = [find_meta_by_id(args.artifact_id)]
+        except FileNotFoundError as e:
+            sys.stderr.write(f"error: {e}\n")
+            return 2
+    else:
+        files = all_meta_files()
     if not files:
         print("(no artifacts yet — nothing to validate)")
         return 0
@@ -465,8 +516,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
         except Exception as e:
             errors.append(f"{p.name}: unreadable ({e})")
             continue
-        if args.artifact_id and data.get("artifact_id") != args.artifact_id:
-            continue
         errors.extend(_validate_meta(data, p))
         aid = data.get("artifact_id")
         if isinstance(aid, str):
@@ -478,7 +527,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
     print(f"artifacts found: {len(loaded)}")
     for aid, data in sorted(loaded.items()):
         phase = data.get("phase", "?")
-        state = (data.get("approval") or {}).get("state", "?")
+        state = (
+            data.get("approval", {}).get("state", "?")
+            if isinstance(data.get("approval"), dict)
+            else "?"
+        )
         section = data.get("section", "?")
         print(f"  {aid}  section={section}  phase={phase}  approval={state}")
 
@@ -516,6 +569,32 @@ REPORT_REQUIRED_FIELDS = (
     "verdict",
     "summary",
 )
+REPORT_ITEM_SEVERITIES = {"high", "med", "low", "info"}
+REPORT_KIND_BY_STAGE = {
+    "monitor": "monitor",
+    "log": "log",
+    "incident": "incident",
+    "review": "review",
+}
+REPORT_CLASSIFICATIONS_BY_STAGE = {
+    "monitor": {"content_draft", "slo_gap", "strategy_mismatch"},
+    "log": {"content_draft", "compliance_gap", "masking_gap"},
+    "incident": {"content_draft", "coverage_gap", "escalation_gap"},
+    "review": {
+        "feedback_loop_gap",
+        "traceability_gap",
+        "consistency_gap",
+        "security_concern",
+        "cost_concern",
+        "escalation",
+    },
+}
+REPORT_ALLOWED_OPS_BY_STAGE = {
+    "monitor": {"link", "set-progress"},
+    "log": {"link", "set-progress"},
+    "incident": {"link", "set-progress"},
+    "review": {"link", "set-progress"},
+}
 
 
 def reports_dir() -> Path:
@@ -661,14 +740,101 @@ def cmd_report_validate(args: argparse.Namespace) -> int:
             f"skill mismatch: report says {fm['skill']!r}, "
             f"this script is for {SKILL_NAME!r}"
         )
+    stage = fm.get("stage")
+    expected_kind = REPORT_KIND_BY_STAGE.get(stage)
+    if expected_kind and fm.get("kind") != expected_kind:
+        errors.append(
+            f"kind/stage mismatch: stage {stage!r} expects kind "
+            f"{expected_kind!r}, got {fm.get('kind')!r}"
+        )
     if "target_refs" in fm and not isinstance(fm["target_refs"], list):
         errors.append("target_refs must be a list")
-    if "proposed_meta_ops" in fm and not isinstance(
-        fm["proposed_meta_ops"], list
-    ):
+        target_refs: list[Any] = []
+    else:
+        target_refs = fm.get("target_refs") or []
+    for index, ref in enumerate(target_refs, start=1):
+        if not _is_non_empty_string(ref):
+            errors.append(f"target_refs[{index}] must be a non-empty string")
+
+    proposed_meta_ops = fm.get("proposed_meta_ops")
+    if proposed_meta_ops is not None and not isinstance(proposed_meta_ops, list):
         errors.append("proposed_meta_ops must be a list")
-    if "items" in fm and not isinstance(fm["items"], list):
+        proposed_meta_ops = []
+
+    items = fm.get("items")
+    if items is not None and not isinstance(items, list):
         errors.append("items must be a list")
+        items = []
+    elif stage in REPORT_CLASSIFICATIONS_BY_STAGE and isinstance(items, list) and not items:
+        errors.append(f"{stage} reports must include at least one item")
+
+    allowed_classifications = REPORT_CLASSIFICATIONS_BY_STAGE.get(stage)
+    if isinstance(items, list):
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                errors.append(f"items[{index}] must be a mapping")
+                continue
+            classification = item.get("classification")
+            if not _is_non_empty_string(classification):
+                errors.append(f"items[{index}] missing classification")
+            elif (
+                allowed_classifications is not None
+                and classification not in allowed_classifications
+            ):
+                errors.append(
+                    f"items[{index}] has invalid classification "
+                    f"{classification!r} for stage {stage!r}"
+                )
+            severity = item.get("severity")
+            if severity is not None and severity not in REPORT_ITEM_SEVERITIES:
+                errors.append(
+                    f"items[{index}] has invalid severity {severity!r}"
+                )
+
+    allowed_ops = REPORT_ALLOWED_OPS_BY_STAGE.get(stage)
+    if isinstance(proposed_meta_ops, list):
+        for index, op in enumerate(proposed_meta_ops, start=1):
+            if not isinstance(op, dict):
+                errors.append(f"proposed_meta_ops[{index}] must be a mapping")
+                continue
+            cmd = op.get("cmd")
+            if not _is_non_empty_string(cmd):
+                errors.append(f"proposed_meta_ops[{index}] missing cmd")
+                continue
+            if allowed_ops is not None and cmd not in allowed_ops:
+                errors.append(
+                    f"proposed_meta_ops[{index}] command {cmd!r} is not allowed "
+                    f"for stage {stage!r}"
+                )
+                continue
+            if cmd == "link":
+                if not _is_non_empty_string(op.get("artifact_id")):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] link requires artifact_id"
+                    )
+                if not _is_non_empty_string(op.get("upstream")) and not _is_non_empty_string(
+                    op.get("downstream")
+                ):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] link requires upstream or downstream"
+                    )
+            elif cmd == "set-progress":
+                completed = op.get("completed")
+                total = op.get("total")
+                if not _is_non_empty_string(op.get("artifact_id")):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-progress requires artifact_id"
+                    )
+                if not isinstance(completed, int) or not isinstance(total, int):
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-progress requires integer "
+                        "completed and total"
+                    )
+                elif completed < 0 or total <= 0 or completed > total:
+                    errors.append(
+                        f"proposed_meta_ops[{index}] set-progress has invalid "
+                        f"completed/total values ({completed}/{total})"
+                    )
     if not (fm.get("summary") or "").strip():
         errors.append("summary is empty (subagent must write a one-line summary)")
     stripped_body = "\n".join(

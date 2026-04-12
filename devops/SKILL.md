@@ -78,7 +78,7 @@ RE quality attributes (via Arch re_refs / constraint_ref)
     │         │
     ├──→ [4] strategy  → SLO + Arch → deploy method + rollback ──→ update PL
     │         │
-    ���──→ [5] monitor   → SLO + strategy → alerting rules + dashboards
+    ├──→ [5] monitor   → SLO + strategy → alerting rules + dashboards
     │
     ├──→ [6] log       → Arch components + security constraints → logging config
     │
@@ -107,9 +107,9 @@ Stages split between the **main agent** (which talks to the user and writes the 
 | 7. incident | **subagent** | assembles runbooks from settled monitor alerts + strategy rollback procedures — benefits from a focused context |
 | 8. review | **subagent** | pure verification over all settled artifacts — a clean context catches more feedback-loop gaps |
 
-**Sequencing rule (mandatory):** stages have a dependency order. `slo` must complete before `strategy` and `monitor`. `iac` must complete before `pipeline`. `strategy` must complete before `incident`. `monitor` and `log` must complete before `incident`. `pipeline` must complete before `strategy` (strategy updates the pipeline). Never start a stage before its dependencies have finished writing to disk. Stages 5 and 6 (`monitor` and `log`) may run **in parallel** since they have no mutual dependency.
+**Sequencing rule (mandatory):** stages have a dependency order. `slo` must complete before `strategy` and `monitor`. `iac` must complete before `pipeline`. `strategy` must complete before `incident`. `monitor` and `log` must complete before `incident`. `pipeline` must complete before `strategy` (strategy updates the pipeline). Never start a stage before its dependencies have finished writing to disk. Stages 5 and 6 (`monitor` and `log`) may run **in parallel**, but the main agent must reconcile both reports into the final Observability artifact before starting `incident`. Treat log-derived metrics as supplemental monitoring inputs that are merged after both subagents return.
 
-**File-based handoff (light and heavy both):** subagent stages (`monitor`, `log`, `incident`, `review`) each write their output to a **report file** under `./artifacts/devops/.reports/` and return only `report_id + verdict + summary` in their message. For `monitor`, `log`, and `incident` the report body contains the draft content the main agent merges into the corresponding artifact `.md` file. For `review` the body is a structured verification report. Subagents **never** edit artifact `.md` files directly, **never** call `artifact.py init / set-phase / link / approve` — they emit `proposed_meta_ops` in the report frontmatter and the main agent applies them. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and per-stage `classification` values.
+**File-based handoff (light and heavy both):** subagent stages (`monitor`, `log`, `incident`, `review`) each write their output to a **report file** under `./artifacts/devops/.reports/` and return only `report_id + verdict + summary` in their message. For `monitor`, `log`, and `incident` the report body contains the draft content the main agent merges into the corresponding artifact `.md` file. For `review` the body is a structured verification report. Subagents **never** edit artifact `.md` files directly, **never** call `artifact.py init / set-phase / link / approve` — they may only propose `link` and `set-progress` operations in `proposed_meta_ops`, and the main agent decides whether to apply them. Read [references/contracts/subagent-report-contract.md](references/contracts/subagent-report-contract.md) for the frontmatter schema and per-stage `classification` values.
 
 Before spawning any subagent, the main agent allocates the report path:
 
@@ -194,7 +194,7 @@ Load [references/workflow/monitor.md](references/workflow/monitor.md).
 Load [references/workflow/log.md](references/workflow/log.md).
 
 - Define structured log format (JSON), per-service log namespaces, correlation ID propagation, sensitive-data masking rules, retention/rotation policy.
-- Feed log-based metrics (error rate, latency percentiles) into the monitoring rules from stage 5.
+- Derive log-based metrics (error rate, latency percentiles) that complement stage 5 monitoring. When `monitor` and `log` ran in parallel, the main agent reconciles these metrics into the final Observability artifact before starting `incident`.
 
 ### Stage 7 — incident (subagent)
 
@@ -273,5 +273,5 @@ The artifact directory defaults to `./artifacts/devops/` under the user's curren
 - **Deploy → Observe feedback loop.** Every deployment strategy must have corresponding monitoring. Every alert must have a runbook. Rollback triggers must connect to SLO burn-rate. This is the signature value — review enforces it.
 - **Traceability.** Every IaC module cites an Arch component. Every SLO cites an RE quality attribute. Every pipeline build step cites an Impl build config. If an artifact has no upstream anchor, it does not belong yet.
 - **Scripts only for metadata.** If you ever feel tempted to `Edit` a `.meta.yaml`, stop — the right answer is almost always a subcommand of `artifact.py`.
-- **Subagent reports go to files, not messages.** `monitor`, `log`, `incident`, and `review` each allocate a report path before spawning, write findings to that file, and return only `report_id + verdict + summary`. Subagents never call `artifact.py set-phase / approve`; they emit `proposed_meta_ops` and the main agent applies them.
+- **Subagent reports go to files, not messages.** `monitor`, `log`, `incident`, and `review` each allocate a report path before spawning, write findings to that file, and return only `report_id + verdict + summary`. Subagents never call `artifact.py set-phase / approve`; in DevOps they may only emit `link` and `set-progress` via `proposed_meta_ops`, and the main agent applies them if appropriate.
 - **No destructive infrastructure commands.** This skill generates files. It does not run `terraform apply`, `kubectl apply`, `docker push`, or any command that modifies live infrastructure. Those require separate user approval.
