@@ -1,0 +1,96 @@
+# Example: Light mode environment setup for a single-service Todo API + PostgreSQL.
+artifact_id: VERIFY-ENV-001
+section: environment
+phase: approved
+progress:
+  section_completed: 6
+  section_total: 6
+  percent: 100
+approval:
+  state: approved
+  approver: user
+  approved_at: 2026-04-12T10:30:00Z
+  notes: Light mode, single service + PostgreSQL
+  history:
+    - state: approved
+      approver: user
+      at: 2026-04-12T10:30:00Z
+      notes: Light mode, single service + PostgreSQL
+upstream_refs:
+  - IMPL-MAP-001
+  - IMPL-CODE-001
+  - IMPL-GUIDE-001
+  - DEVOPS-OBS-001
+downstream_refs:
+  - VERIFY-SC-001
+  - VERIFY-RPT-001
+document_path: VERIFY-ENV-001.md
+created_at: 2026-04-12T09:00:00Z
+updated_at: 2026-04-12T10:30:00Z
+
+environment_config:
+  mode: light
+  compose_file: docker-compose.verify.yml
+  services:
+    - name: todo-api
+      type: application
+      image: null
+      build_path: ./src/api
+      ports: ["8080:8080"]
+      depends_on: [postgres]
+      health_check:
+        endpoint: /health
+        interval: 10s
+        retries: 3
+      environment:
+        - DATABASE_URL=postgresql://app:dev@postgres:5432/tododb
+        - PORT=8080
+      component_ref: ARCH-COMP-001
+    - name: postgres
+      type: infrastructure
+      image: postgres:16
+      build_path: null
+      ports: ["5432:5432"]
+      depends_on: []
+      health_check:
+        command: pg_isready -U app -d tododb
+        interval: 5s
+        retries: 5
+      environment:
+        - POSTGRES_DB=tododb
+        - POSTGRES_USER=app
+        - POSTGRES_PASSWORD=dev
+      component_ref: null
+  observability_stack:
+    prometheus:
+      port: 9090
+      scrape_targets: [todo-api:8080]
+      rules_file: monitoring/alerts.yml
+    grafana:
+      port: 3000
+      dashboards_dir: monitoring/dashboards/
+      datasources: [prometheus]
+    loki: null
+    tempo: null
+  network_topology:
+    networks:
+      - name: verify-net
+        driver: bridge
+    exposed_ports:
+      - service: todo-api
+        host_port: 8080
+        container_port: 8080
+      - service: grafana
+        host_port: 3000
+        container_port: 3000
+  startup_order:
+    - postgres
+    - todo-api
+  instrumentation_status:
+    metrics_endpoint: /metrics
+    structured_logging: true
+    trace_propagation: null
+    gaps: []
+  impl_refs: [IMPL-MAP-001, IMPL-CODE-001, IMPL-GUIDE-001]
+  devops_refs: [DEVOPS-OBS-001]
+  arch_refs: [ARCH-COMP-001]

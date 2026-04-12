@@ -1,0 +1,97 @@
+# Metadata skeleton for the Environment Setup section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: VERIFY-ENV-000
+section: environment
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: VERIFY-ENV-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+environment_config:
+  mode: null
+  # mode: light | heavy
+  compose_file: null
+  # compose_file: docker-compose.verify.yml
+  services: []
+  # - name: api-service
+  #   type: application
+  #   image: null
+  #   build_path: ./src/api
+  #   ports: ["8080:8080"]
+  #   depends_on: [postgres, redis]
+  #   health_check:
+  #     endpoint: /health
+  #     interval: 10s
+  #     retries: 3
+  #   environment: []
+  #   component_ref: ARCH-COMP-001
+  # - name: postgres
+  #   type: infrastructure
+  #   image: postgres:16
+  #   ports: ["5432:5432"]
+  #   depends_on: []
+  #   health_check:
+  #     command: pg_isready
+  #     interval: 5s
+  #     retries: 5
+  #   environment:
+  #     - POSTGRES_DB=appdb
+  #     - POSTGRES_USER=app
+  #     - POSTGRES_PASSWORD=dev
+  observability_stack:
+    prometheus: null
+    # prometheus:
+    #   port: 9090
+    #   scrape_targets: [api-service:8080]
+    #   rules_file: monitoring/alerts.yml
+    grafana: null
+    # grafana:
+    #   port: 3000
+    #   dashboards_dir: monitoring/dashboards/
+    #   datasources: [prometheus, loki, tempo]
+    loki: null
+    # loki:
+    #   port: 3100
+    #   log_drivers: [api-service]
+    tempo: null
+    # tempo:
+    #   port: 3200
+    #   receivers: [otlp]
+  network_topology:
+    networks: []
+    # - name: verify-net
+    #   driver: bridge
+    exposed_ports: []
+    # - service: api-service
+    #   host_port: 8080
+    #   container_port: 8080
+  startup_order: []
+  # - postgres
+  # - redis
+  # - api-service
+  # - worker-service
+  instrumentation_status:
+    metrics_endpoint: null
+    # metrics_endpoint: /metrics
+    structured_logging: null
+    # structured_logging: true
+    trace_propagation: null
+    # trace_propagation: W3C Trace Context
+    gaps: []
+    # - type: missing_metrics
+    #   description: No /metrics endpoint exposed
+    #   suggestion: Add prometheus_client middleware
+  impl_refs: []
+  devops_refs: []
+  arch_refs: []

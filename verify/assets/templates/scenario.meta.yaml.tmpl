@@ -1,0 +1,68 @@
+# Metadata skeleton for the Verification Scenario section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: VERIFY-SC-000
+section: scenario
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: VERIFY-SC-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+verification_scenarios: []
+# - id: SC-001
+#   category: integration
+#   title: User registration happy path
+#   description: Verify the full registration flow from API request to database write
+#   preconditions:
+#     - All services healthy
+#     - Database empty
+#   steps:
+#     - action: POST /api/v1/users
+#       payload: '{"email": "test@example.com", "name": "Test User"}'
+#       type: http_request
+#     - action: Query users table
+#       type: db_query
+#   expected_results:
+#     - type: response
+#       condition: status == 201
+#     - type: metric
+#       condition: http_requests_total{status="201"} incremented
+#     - type: log
+#       condition: '"event":"user_created" present in structured log'
+#   evidence_type: [response, metric, log]
+#   arch_refs: [ARCH-DIAG-001]
+#   re_refs: [FR-001]
+#   slo_refs: []
+# - id: SC-002
+#   category: failure
+#   title: Database unavailability handling
+#   description: Verify graceful degradation when PostgreSQL is stopped
+#   preconditions:
+#     - All services healthy and warmed up
+#   steps:
+#     - action: docker stop postgres
+#       type: fault_injection
+#     - action: POST /api/v1/users
+#       payload: '{"email": "test@example.com"}'
+#       type: http_request
+#   expected_results:
+#     - type: response
+#       condition: status == 503
+#     - type: metric
+#       condition: error_rate increases
+#     - type: log
+#       condition: '"level":"error" with database connection failure'
+#   evidence_type: [response, metric, log]
+#   arch_refs: [ARCH-COMP-001]
+#   re_refs: []
+#   slo_refs: [SLO-001]

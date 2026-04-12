@@ -1,0 +1,123 @@
+# Environment Setup
+
+<!--
+This document defines the local Docker Compose integration environment,
+including application services, infrastructure dependencies, observability
+stack provisioning, and instrumentation verification.
+
+Generated from Impl and DevOps artifacts during the provision + instrument stages.
+-->
+
+## 1. Mode
+
+<!-- light | heavy — determined by Arch component count and deployment complexity -->
+
+## 2. Services Summary
+
+| Name | Type | Image / Build | Ports | Depends On | Health Check | Component Ref |
+|------|------|--------------|-------|------------|-------------|---------------|
+| <!-- api-service --> | <!-- application --> | <!-- ./src/api --> | <!-- 8080:8080 --> | <!-- postgres, redis --> | <!-- GET /health --> | <!-- ARCH-COMP-001 --> |
+| <!-- postgres --> | <!-- infrastructure --> | <!-- postgres:16 --> | <!-- 5432:5432 --> | <!-- — --> | <!-- pg_isready --> | <!-- — --> |
+
+## 3. Service Details
+
+### <!-- api-service -->
+
+**Type**: <!-- application -->
+
+**Build / Image**: <!-- ./src/api (Dockerfile) -->
+
+**Ports**: <!-- 8080:8080 -->
+
+**Dependencies**: <!-- postgres, redis -->
+
+**Health Check**
+
+| Parameter | Value |
+|-----------|-------|
+| Endpoint / Command | <!-- GET /health --> |
+| Interval | <!-- 10s --> |
+| Retries | <!-- 3 --> |
+
+**Environment Variables**
+
+| Variable | Value | Source |
+|----------|-------|--------|
+| <!-- DATABASE_URL --> | <!-- postgresql://app:dev@postgres:5432/appdb --> | <!-- IMPL-CODE-001 environment_config --> |
+
+## 4. Observability Stack
+
+### Prometheus
+
+- **Port**: <!-- 9090 -->
+- **Scrape targets**: <!-- api-service:8080/metrics -->
+- **Alerting rules**: <!-- monitoring/alerts.yml (from DEVOPS-OBS-001) -->
+
+### Grafana
+
+- **Port**: <!-- 3000 -->
+- **Dashboards**: <!-- monitoring/dashboards/ (auto-provisioned from DEVOPS-OBS-001) -->
+- **Datasources**: <!-- prometheus, loki, tempo -->
+
+### Loki (heavy mode only)
+
+- **Port**: <!-- 3100 -->
+- **Log drivers**: <!-- api-service, worker-service -->
+
+### Tempo (heavy mode only)
+
+- **Port**: <!-- 3200 -->
+- **Receivers**: <!-- OTLP (gRPC 4317, HTTP 4318) -->
+
+## 5. Network Topology
+
+| Network | Driver | Services |
+|---------|--------|----------|
+| <!-- verify-net --> | <!-- bridge --> | <!-- all services --> |
+
+**Exposed Ports**
+
+| Service | Host Port | Container Port |
+|---------|-----------|---------------|
+| <!-- api-service --> | <!-- 8080 --> | <!-- 8080 --> |
+| <!-- grafana --> | <!-- 3000 --> | <!-- 3000 --> |
+
+## 6. Startup Order
+
+<!-- Derived from Arch component dependency graph -->
+
+1. <!-- postgres (infrastructure, no deps) -->
+2. <!-- redis (infrastructure, no deps) -->
+3. <!-- api-service (depends on postgres, redis) -->
+4. <!-- worker-service (depends on postgres, redis) -->
+
+## 7. Instrumentation Status
+
+| Check | Status | Details |
+|-------|--------|---------|
+| Metrics endpoint | <!-- ✓ /metrics --> | <!-- prometheus_client middleware --> |
+| Structured logging | <!-- ✓ JSON format --> | <!-- structlog configured --> |
+| Trace propagation | <!-- ✗ missing --> | <!-- No W3C Trace Context headers --> |
+
+**Gaps & Recommendations**
+
+| Gap | Suggestion | Impact |
+|-----|-----------|--------|
+| <!-- Missing trace propagation --> | <!-- Add opentelemetry-instrumentation-* packages --> | <!-- Cannot verify distributed tracing scenarios --> |
+
+## 8. Generated Files
+
+| File | Purpose |
+|------|---------|
+| <!-- docker-compose.verify.yml --> | <!-- Main compose file --> |
+| <!-- monitoring/prometheus.yml --> | <!-- Prometheus scrape config --> |
+| <!-- monitoring/alerts.yml --> | <!-- Alerting rules (from DEVOPS-OBS) --> |
+| <!-- monitoring/dashboards/*.json --> | <!-- Grafana dashboards (from DEVOPS-OBS) --> |
+| <!-- monitoring/loki-config.yml --> | <!-- Loki config (heavy mode) --> |
+| <!-- monitoring/tempo-config.yml --> | <!-- Tempo config (heavy mode) --> |
+
+## 9. Upstream References
+
+- Impl: <!-- IMPL-MAP-001, IMPL-CODE-001, IMPL-GUIDE-001 -->
+- DevOps: <!-- DEVOPS-IAC-001, DEVOPS-OBS-001 -->
+- Arch: <!-- ARCH-COMP-001, ARCH-COMP-002 (via Impl component_ref) -->

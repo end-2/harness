@@ -1,0 +1,88 @@
+# Metadata skeleton for the Verification Report section.
+# artifact_id and document_path are overwritten by `artifact.py init`.
+artifact_id: VERIFY-RPT-000
+section: report
+phase: draft
+progress:
+  section_completed: 0
+  section_total: 0
+  percent: 0
+approval:
+  state: pending
+  approver: null
+  approved_at: null
+  notes: null
+  history: []
+upstream_refs: []
+downstream_refs: []
+document_path: VERIFY-RPT-000.md
+
+# Structured fields below mirror the tables in the markdown document.
+verification_report:
+  verdict: null
+  # verdict: pass | pass_with_issues | fail
+  scenario_results: []
+  # - scenario_id: SC-001
+  #   status: pass
+  #   duration_seconds: 12.5
+  #   evidence:
+  #     - type: response
+  #       summary: HTTP 201, user created
+  #     - type: metric
+  #       summary: http_requests_total incremented
+  #       query: http_requests_total{status="201"}
+  #       value: 1
+  #     - type: log
+  #       summary: user_created event found
+  #       query: '{service="api"} |= "user_created"'
+  evidence_artifacts: []
+  # - id: EVD-001
+  #   type: metric_query
+  #   query: http_requests_total{status="201"}
+  #   result: 1
+  #   timestamp: 2026-04-12T10:05:00Z
+  # - id: EVD-002
+  #   type: log_sample
+  #   query: '{service="api"} |= "user_created"'
+  #   result: '{"event":"user_created","user_id":"abc123"}'
+  #   timestamp: 2026-04-12T10:05:01Z
+  issues: []
+  # - id: ISS-001
+  #   severity: high
+  #   category: impl
+  #   description: API returns 500 instead of 503 when database is unavailable
+  #   root_cause: Missing error handler for database connection failures
+  #   resolution: Added try/catch with proper HTTP status mapping
+  #   status: fixed
+  #   scenario_refs: [SC-101]
+  #   impl_refs: [IMPL-CODE-001]
+  environment_health:
+    services: []
+    # - name: api-service
+    #   status: healthy
+    #   restarts: 0
+    #   memory_mb: 256
+    # - name: postgres
+    #   status: healthy
+    #   restarts: 0
+    #   memory_mb: 128
+  slo_validation: []
+  # - slo_id: SLO-001
+  #   sli_metric: http_requests_total
+  #   metric_collected: true
+  #   sample_value: 42
+  #   threshold: 99.9%
+  #   devops_refs: [DEVOPS-OBS-001]
+  feedback: []
+  # - target_skill: impl
+  #   target_refs: [IMPL-CODE-001]
+  #   issue_refs: [ISS-001]
+  #   summary: Missing error handler causes incorrect HTTP status on DB failure
+  # - target_skill: devops
+  #   target_refs: [DEVOPS-OBS-001]
+  #   issue_refs: [ISS-002]
+  #   summary: PromQL query in MON-002 uses wrong metric name
+  arch_refs: []
+  impl_refs: []
+  devops_refs: []
+  re_refs: []

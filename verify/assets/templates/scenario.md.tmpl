@@ -1,0 +1,148 @@
+# Verification Scenarios
+
+<!--
+This document defines the verification scenarios derived from Arch sequence
+diagrams, RE acceptance criteria, DevOps observability config, and DevOps
+runbooks. Each scenario describes what to test, how to execute it, and
+what evidence to collect.
+
+ID conventions:
+  Integration:    SC-001, SC-002, ...
+  Failure:        SC-101, SC-102, ...
+  Load:           SC-201, SC-202, ...
+  Observability:  SC-301, SC-302, ...
+-->
+
+## 1. Scenario Summary
+
+| ID | Category | Title | Source | Evidence Types |
+|----|----------|-------|--------|---------------|
+| SC-001 | <!-- integration --> | <!-- User registration happy path --> | <!-- ARCH-DIAG-001 --> | <!-- response, metric, log --> |
+| SC-101 | <!-- failure --> | <!-- Database unavailability --> | <!-- ARCH-COMP-001 deps --> | <!-- response, metric, log --> |
+| SC-301 | <!-- observability --> | <!-- SLO metric collection --> | <!-- DEVOPS-OBS-001 --> | <!-- metric --> |
+
+## 2. Integration Scenarios
+
+### SC-001 — <!-- User registration happy path -->
+
+**Category**: integration
+
+**Description**: <!-- Verify the full registration flow from API request through service processing to database persistence, confirming the Arch sequence diagram is realised at runtime. -->
+
+**Source**: <!-- ARCH-DIAG-001 (registration sequence) -->
+
+**Preconditions**
+
+- <!-- All services healthy -->
+- <!-- Database migrated and empty -->
+
+**Steps**
+
+| # | Action | Type | Details |
+|---|--------|------|---------|
+| 1 | <!-- POST /api/v1/users --> | <!-- http_request --> | <!-- payload: {"email": "test@example.com", "name": "Test User"} --> |
+| 2 | <!-- Query users table --> | <!-- db_query --> | <!-- SELECT * FROM users WHERE email = 'test@example.com' --> |
+
+**Expected Results**
+
+| Type | Condition |
+|------|-----------|
+| response | <!-- HTTP 201, body contains user id --> |
+| metric | <!-- http_requests_total{status="201", method="POST", path="/api/v1/users"} incremented by 1 --> |
+| log | <!-- Structured log entry with event="user_created", user_id=<id> --> |
+
+**Evidence to Collect**: <!-- response body, PromQL query result, LogQL query result -->
+
+**Arch Refs**: <!-- ARCH-DIAG-001 -->
+**RE Refs**: <!-- FR-001 (user registration acceptance criteria) -->
+
+## 3. Failure Scenarios
+
+### SC-101 — <!-- Database unavailability handling -->
+
+**Category**: failure
+
+**Description**: <!-- Verify graceful degradation when PostgreSQL becomes unavailable, confirming circuit breaker / fallback behaviour from IMPL-IDR-001. -->
+
+**Source**: <!-- ARCH-COMP-001 dependencies → postgres -->
+
+**Preconditions**
+
+- <!-- All services healthy and warmed up with at least one successful request -->
+
+**Steps**
+
+| # | Action | Type | Details |
+|---|--------|------|---------|
+| 1 | <!-- docker stop postgres --> | <!-- fault_injection --> | <!-- Simulate database outage --> |
+| 2 | <!-- POST /api/v1/users --> | <!-- http_request --> | <!-- Expect graceful error response --> |
+| 3 | <!-- Wait 10s, check metrics --> | <!-- metric_query --> | <!-- PromQL: rate(http_requests_total{status=~"5.."}[1m]) --> |
+| 4 | <!-- docker start postgres --> | <!-- recovery --> | <!-- Restore database --> |
+| 5 | <!-- POST /api/v1/users --> | <!-- http_request --> | <!-- Expect successful response after recovery --> |
+
+**Expected Results**
+
+| Type | Condition |
+|------|-----------|
+| response | <!-- HTTP 503 during outage, HTTP 201 after recovery --> |
+| metric | <!-- Error rate spike visible in Prometheus --> |
+| log | <!-- Error-level log with database connection failure details --> |
+
+**Evidence to Collect**: <!-- HTTP responses, PromQL error rate query, LogQL error search -->
+
+**Arch Refs**: <!-- ARCH-COMP-001 -->
+**SLO Refs**: <!-- SLO-001 (availability) -->
+
+## 4. Load Scenarios
+
+### SC-201 — <!-- Baseline throughput check -->
+
+**Category**: load
+
+**Description**: <!-- Light smoke-level load test to confirm the system handles concurrent requests without errors under minimal load. Not a performance benchmark. -->
+
+**Steps**
+
+| # | Action | Type | Details |
+|---|--------|------|---------|
+| 1 | <!-- Send 10 concurrent requests --> | <!-- load_injection --> | <!-- 10 parallel POST /api/v1/users with unique emails --> |
+| 2 | <!-- Collect response times --> | <!-- metric_query --> | <!-- PromQL: histogram_quantile(0.99, http_request_duration_seconds_bucket) --> |
+
+**Expected Results**
+
+| Type | Condition |
+|------|-----------|
+| response | <!-- All 10 requests return 201 --> |
+| metric | <!-- p99 latency < SLO threshold --> |
+
+## 5. Observability Scenarios
+
+### SC-301 — <!-- SLO metric collection verification -->
+
+**Category**: observability
+
+**Description**: <!-- Verify that each SLO defined in DEVOPS-OBS-001 has a corresponding metric that is actually being collected by Prometheus. -->
+
+**Source**: <!-- DEVOPS-OBS-001 slo_definitions -->
+
+**Steps**
+
+| # | Action | Type | Details |
+|---|--------|------|---------|
+| 1 | <!-- Send a few requests to generate metrics --> | <!-- http_request --> | <!-- Warm up the metric pipeline --> |
+| 2 | <!-- Query each SLI metric --> | <!-- metric_query --> | <!-- PromQL for each slo_definitions[].sli --> |
+
+**Expected Results**
+
+| SLO ID | SLI Metric | Collected? | Sample Value |
+|--------|-----------|------------|-------------|
+| <!-- SLO-001 --> | <!-- http_requests_total --> | <!-- ✓ --> | <!-- 42 --> |
+| <!-- SLO-002 --> | <!-- http_request_duration_seconds --> | <!-- ✓ --> | <!-- 0.045 --> |
+
+**DevOps Refs**: <!-- DEVOPS-OBS-001 -->
+
+## 6. Upstream References
+
+- Arch: <!-- ARCH-DIAG-001 (sequence diagrams), ARCH-COMP-001 (dependencies) -->
+- RE: <!-- FR-001 (acceptance criteria) -->
+- DevOps: <!-- DEVOPS-OBS-001 (SLOs, monitoring), DEVOPS-RB-001 (runbook triggers) -->
